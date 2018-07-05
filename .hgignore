@@ -13,7 +13,7 @@ dev/timertt
 dev/nodejs
 dev/fmt
 dev/fmt_mxxru
-dev/args
+dev/clara
 dev/catch
 dev/cmake_build*
 o/*
