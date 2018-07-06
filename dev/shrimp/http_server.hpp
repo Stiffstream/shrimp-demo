@@ -77,6 +77,7 @@ make_http_server_settings(
 			.address( http_srv_params.m_address )
 			// NOTE: it is better to configure that value.
 			.handle_request_timeout( std::chrono::seconds(60) )
+			.write_http_response_timelimit( std::chrono::seconds(60) )
 			.request_handler( make_router( params, req_handler_mbox ) );
 }
 
