@@ -176,34 +176,31 @@ a_transform_manager_t::handle_new_request(
 void
 a_transform_manager_t::try_initiate_pending_requests_processing()
 {
-	if( !m_free_workers.empty() )
+	// Let's try to find unique request which isn't in a cache yet.
+	// But do the search only if there is at least one free worker.
+	while( !m_free_workers.empty() && !m_pending_requests.empty() )
 	{
-		// There is a free worker. Let's try to find unique request
-		// which isn't in a cache yet.
-		while( !m_pending_requests.empty() )
-		{
-			pending_request_t request = std::move(m_pending_requests.front());
-			m_pending_requests.pop();
+		pending_request_t request = std::move(m_pending_requests.front());
+		m_pending_requests.pop();
 
-			// There could be such image in the cache.
-			auto atoken = m_transformed_cache.lookup( request.m_key );
-			if( atoken )
-			{
-				handle_request_for_already_transformed_image(
-						std::move(request.m_cmd),
-						*atoken );
-			}
-			else
-			{
-				// There is no transformed image in the cache.
-				// Actual image processing should be done.
-				auto worker = std::move(m_free_workers.top());
-				m_free_workers.pop();
-				so_5::send< so_5::mutable_msg<a_transformer_t::resize_request_t> >(
-						worker,
-						std::move(request.m_cmd),
-						so_direct_mbox() );
-			}
+		// There could be such image in the cache.
+		auto atoken = m_transformed_cache.lookup( request.m_key );
+		if( atoken )
+		{
+			handle_request_for_already_transformed_image(
+					std::move(request.m_cmd),
+					*atoken );
+		}
+		else
+		{
+			// There is no transformed image in the cache.
+			// Actual image processing should be done.
+			auto worker = std::move(m_free_workers.top());
+			m_free_workers.pop();
+			so_5::send< so_5::mutable_msg<a_transformer_t::resize_request_t> >(
+					worker,
+					std::move(request.m_cmd),
+					so_direct_mbox() );
 		}
 	}
 }
