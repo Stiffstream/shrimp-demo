@@ -10,7 +10,9 @@
 
 #include <string>
 
-TEST_CASE( "simple insert" )
+using namespace std::string_literals;
+
+TEST_CASE( "[single-value] simple insert" )
 {
 	using namespace shrimp;
 
@@ -44,7 +46,7 @@ TEST_CASE( "simple insert" )
 	}
 }
 
-TEST_CASE( "insert-erase-insert" )
+TEST_CASE( "[single-value] insert-erase-insert" )
 {
 	using namespace shrimp;
 
@@ -78,7 +80,7 @@ TEST_CASE( "insert-erase-insert" )
 	}
 }
 
-TEST_CASE( "simple oldest" )
+TEST_CASE( "[single-value] simple oldest" )
 {
 	using namespace shrimp;
 
@@ -97,7 +99,7 @@ TEST_CASE( "simple oldest" )
 	REQUIRE( l->key() == "first" );
 }
 
-TEST_CASE( "oldest with update_access_time" )
+TEST_CASE( "[single-value] oldest with update_access_time" )
 {
 	using namespace shrimp;
 
@@ -122,7 +124,7 @@ TEST_CASE( "oldest with update_access_time" )
 	REQUIRE( l2->key() == "second" );
 }
 
-TEST_CASE( "several update_access_time with one item only" )
+TEST_CASE( "[single-value] several update_access_time with one item only" )
 {
 	using namespace shrimp;
 
@@ -150,5 +152,173 @@ TEST_CASE( "several update_access_time with one item only" )
 		cache.erase( cache.lookup( "two" ).value() );
 		cache.erase( cache.lookup( "three" ).value() );
 	}
+}
+
+TEST_CASE( "[multi-value] simple insert" )
+{
+	using namespace shrimp;
+
+	using cache_t = multivalue_cache_alike_container_t<std::string, std::string>;
+
+	cache_t cache;
+
+	REQUIRE( cache.empty() );
+
+	cache.insert( "first", "First" );
+	REQUIRE( !cache.empty() );
+
+	REQUIRE( cache.has_key( "first" ) );
+	REQUIRE( 1u == cache.unique_keys() );
+
+	REQUIRE( !cache.has_key( "second" ) );
+	
+	cache.insert( "second", "Second" );
+	REQUIRE( cache.has_key( "second" ) );
+	REQUIRE( 2u == cache.unique_keys() );
+}
+
+TEST_CASE( "[multi-value] simple oldest" )
+{
+	using namespace shrimp;
+
+	using cache_t = multivalue_cache_alike_container_t<std::string, std::string>;
+
+	cache_t cache;
+
+	REQUIRE( cache.empty() );
+	REQUIRE( !cache.oldest() );
+
+	cache.insert( "first", "First" );
+	cache.insert( "second", "Second" );
+
+	auto l = cache.oldest();
+	REQUIRE( l );
+	REQUIRE( l->key() == "first" );
+}
+
+TEST_CASE( "[multi-value] oldest with erase" )
+{
+	using namespace shrimp;
+
+	using cache_t = multivalue_cache_alike_container_t<std::string, std::string>;
+
+	cache_t cache;
+
+	REQUIRE( cache.empty() );
+	REQUIRE( !cache.oldest() );
+
+	cache.insert( "first", "F1" );
+	cache.insert( "second", "S1" );
+	cache.insert( "first", "F2" );
+	cache.insert( "third", "T1" );
+	cache.insert( "second", "S2" );
+	cache.insert( "first", "F3" );
+
+	REQUIRE( 3u == cache.unique_keys() );
+
+	const auto check = [&cache](auto key, auto value) {
+		auto l = cache.oldest();
+		REQUIRE( l );
+		REQUIRE( l->key() == key );
+		REQUIRE( l->value() == value );
+		cache.erase( std::move(*l) );
+	};
+
+	check( "first"s, "F1"s );
+	REQUIRE( 3u == cache.unique_keys() );
+	check( "second"s, "S1"s );
+	REQUIRE( 3u == cache.unique_keys() );
+	check( "first"s, "F2"s );
+	REQUIRE( 3u == cache.unique_keys() );
+	check( "third"s, "T1"s );
+	REQUIRE( 2u == cache.unique_keys() );
+	check( "second"s, "S2"s );
+	REQUIRE( 1u == cache.unique_keys() );
+	check( "first"s, "F3"s );
+	REQUIRE( 0u == cache.unique_keys() );
+}
+
+TEST_CASE( "[multi-value] extract oldest" )
+{
+	using namespace shrimp;
+
+	using cache_t = multivalue_cache_alike_container_t<std::string, std::string>;
+
+	cache_t cache;
+
+	REQUIRE( cache.empty() );
+	REQUIRE( !cache.oldest() );
+
+	cache.insert( "first", "F1" );
+	cache.insert( "second", "S1" );
+	cache.insert( "first", "F2" );
+	cache.insert( "third", "T1" );
+	cache.insert( "second", "S2" );
+	cache.insert( "first", "F3" );
+
+	REQUIRE( 3u == cache.unique_keys() );
+
+	{
+		auto l = cache.oldest();
+		std::vector<std::string> items;
+		cache.extract_values_for_key_of( std::move(l.value()),
+				[&items](auto && v) { items.push_back(std::move(v)); } );
+		REQUIRE( items == std::vector<std::string>{ { "F1"s, "F2"s, "F3"s } } );
+	}
+
+	REQUIRE( 2u == cache.unique_keys() );
+
+	const auto check = [&cache](auto key, auto value) {
+		auto l = cache.oldest();
+		REQUIRE( l );
+		REQUIRE( l->key() == key );
+		REQUIRE( l->value() == value );
+		cache.erase( std::move(*l) );
+	};
+
+	check( "second"s, "S1"s );
+	REQUIRE( 2u == cache.unique_keys() );
+	check( "third"s, "T1"s );
+	REQUIRE( 1u == cache.unique_keys() );
+	check( "second"s, "S2"s );
+	REQUIRE( 0u == cache.unique_keys() );
+}
+
+TEST_CASE( "[multi-value] extract oldest-2" )
+{
+	using namespace shrimp;
+
+	using cache_t = multivalue_cache_alike_container_t<std::string, std::string>;
+
+	cache_t cache;
+
+	REQUIRE( cache.empty() );
+	REQUIRE( !cache.oldest() );
+
+	cache.insert( "first", "F1" );
+	cache.insert( "second", "S1" );
+	cache.insert( "first", "F2" );
+	cache.insert( "third", "T1" );
+	cache.insert( "second", "S2" );
+	cache.insert( "first", "F3" );
+
+	REQUIRE( 3u == cache.unique_keys() );
+
+	const auto check = [&cache](std::vector<std::string> expected) {
+		auto l = cache.oldest();
+		std::vector<std::string> items;
+		cache.extract_values_for_key_of( std::move(l.value()),
+				[&items](auto && v) { items.push_back(std::move(v)); } );
+		REQUIRE( items == expected );
+	};
+
+	check( { "F1"s, "F2"s, "F3"s } );
+	REQUIRE( 2u == cache.unique_keys() );
+	check( { "S1"s, "S2"s } );
+	REQUIRE( 1u == cache.unique_keys() );
+	check( { "T1"s } );
+	REQUIRE( 0u == cache.unique_keys() );
+
+	REQUIRE( cache.empty() );
 }
 
