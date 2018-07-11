@@ -33,14 +33,14 @@ public:
 	struct resize_request_t final : public so_5::message_t
 	{
 		//! Original request to be processed.
-		sobj_shptr_t<a_transform_manager_t::resize_request_t> m_cmd;
+		transform::resize_request_key_t m_key;
 		//! Mbox for the result of the transformation.
 		const so_5::mbox_t m_reply_to;
 
 		resize_request_t(
-			sobj_shptr_t<a_transform_manager_t::resize_request_t> cmd,
+			transform::resize_request_key_t key,
 			so_5::mbox_t reply_to )
-			: m_cmd{ std::move(cmd) }
+			: m_key{ std::move(key) }
 			, m_reply_to{ std::move(reply_to) }
 		{}
 	};
@@ -61,12 +61,14 @@ private:
 	on_resize_request(
 		mutable_mhood_t<resize_request_t> cmd);
 
+	[[nodiscard]]
 	a_transform_manager_t::resize_result_t::result_t
 	handle_resize_request(
-		a_transform_manager_t::resize_request_t & request );
+		const transform::resize_request_key_t & key );
 
 	//! Load image from given path.
-	[[nodiscard]] Magick::Image
+	[[nodiscard]]
+	Magick::Image
 	load_image( std::string_view image_name ) const;
 };
 

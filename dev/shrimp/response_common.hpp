@@ -185,7 +185,12 @@ make_header_fields_list(
 namespace http_header
 {
 
-constexpr char shrimp_total_processing_time_hf[] = "Shrimp-Processing-Time";
+inline std::string_view
+shrimp_total_processing_time_hf()
+{
+	return { "Shrimp-Processing-Time" };
+}
+
 constexpr char shrimp_image_src[] = "Shrimp-Image-Src";
 
 //! Server image source.

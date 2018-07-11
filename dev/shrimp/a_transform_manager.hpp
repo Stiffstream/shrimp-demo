@@ -11,6 +11,7 @@
 
 #include <shrimp/transforms.hpp>
 #include <shrimp/cache_alike_container.hpp>
+#include <shrimp/key_multivalue_queue.hpp>
 
 #include <so_5/all.hpp>
 #include <restinio/all.hpp>
@@ -97,8 +98,8 @@ public:
 
 		//! Who processed the request.
 		so_5::mbox_t m_worker;
-		//! Original transformation request.
-		sobj_shptr_t<resize_request_t> m_original_request;
+		//! Indentification of processed request.
+		transform::resize_request_key_t m_key;
 
 		//! The result of the transformation.
 		result_t m_result;
@@ -106,10 +107,10 @@ public:
 		template<typename Actual_Result>
 		resize_result_t(
 			so_5::mbox_t worker,
-			sobj_shptr_t<resize_request_t> original_request,
+			transform::resize_request_key_t key,
 			Actual_Result result)
 			: m_worker{ std::move(worker) }
-			, m_original_request{ std::move(original_request) }
+			, m_key{ std::move(key) }
 			, m_result{ std::move(result) }
 		{}
 	};
@@ -136,28 +137,14 @@ private :
 			transform::resize_request_key_t,
 			datasizable_blob_shared_ptr_t >;
 
-	//! Description of pending requests.
-	struct pending_request_t
-	{
-		//! Key for that request.
-		transform::resize_request_key_t m_key;
-		//! Original request.
-		sobj_shptr_t<resize_request_t> m_cmd;
-		//! When request was received.
-		std::chrono::steady_clock::time_point m_stored_at;
+	//! Type of container for pending and inprogress requests.
+	using pending_request_queue_t = key_multivalue_queue_t<
+			transform::resize_request_key_t,
+			sobj_shptr_t<resize_request_t> >;
 
-		pending_request_t(
-			transform::resize_request_key_t key,
-			sobj_shptr_t<resize_request_t> cmd,
-			std::chrono::steady_clock::time_point stored_at )
-			: m_key{ std::move(key) }
-			, m_cmd{ std::move(cmd) }
-			, m_stored_at{ stored_at }
-		{}
-	};
-
-	//! Type of queue of pending requests.
-	using pending_request_queue_t = std::queue<pending_request_t>;
+	//! Type of container for original request objects.
+	using original_request_container_t =
+			std::vector< sobj_shptr_t<resize_request_t> >;
 
 	//! Type of container with free workers.
 	using free_worker_container_t = std::stack<so_5::mbox_t>;
@@ -181,6 +168,9 @@ private :
 	pending_request_queue_t m_pending_requests;
 	//! Max count of pending requests.
 	static constexpr std::size_t max_pending_requests{ 64u };
+
+	//! Container of requests in progress.
+	pending_request_queue_t m_inprogress_requests;
 
 	//! Container of free workers.
 	free_worker_container_t m_free_workers;
@@ -221,7 +211,7 @@ private :
 		cache_t::access_token_t atoken );
 
 	void
-	handle_new_request(
+	handle_not_transformed_image(
 		transform::resize_request_key_t key,
 		sobj_shptr_t<resize_request_t> cmd );
 
@@ -230,18 +220,24 @@ private :
 
 	void
 	on_successful_resize(
+		transform::resize_request_key_t key,
 		successful_resize_t & result,
-		sobj_shptr_t<resize_request_t> cmd );
+		original_request_container_t requests );
 
 	void
 	on_failed_resize(
 		failed_resize_t & result,
-		sobj_shptr_t<resize_request_t> cmd );
+		original_request_container_t requests );
 
 	void
 	store_transformed_image_to_cache(
 		transform::resize_request_key_t key,
 		datasizable_blob_shared_ptr_t image_blob );
+
+	[[nodiscard]]
+	original_request_container_t
+	extract_inprogress_requests(
+		pending_request_queue_t::access_token_t atoken );
 };
 
 } /* namespace shrimp */

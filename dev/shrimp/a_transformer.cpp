@@ -34,26 +34,27 @@ void
 a_transformer_t::on_resize_request(
 	mutable_mhood_t<resize_request_t> cmd)
 {
-	auto result = handle_resize_request( *(cmd->m_cmd) );
+	auto result = handle_resize_request( cmd->m_key );
 
 	so_5::send< so_5::mutable_msg<a_transform_manager_t::resize_result_t> >(
 			cmd->m_reply_to,
 			so_direct_mbox(),
-			std::move(cmd->m_cmd),
+			std::move(cmd->m_key),
 			std::move(result) );
 }
 
+[[nodiscard]]
 a_transform_manager_t::resize_result_t::result_t
 a_transformer_t::handle_resize_request(
-	a_transform_manager_t::resize_request_t & request )
+	const transform::resize_request_key_t & key )
 {
 	try
 	{
-		auto image = load_image( request.m_image );
+		auto image = load_image( key.path() );
 
 		const auto duration = measure_duration_ms( [&]{
 				transform::resize(
-						request.m_params,
+						key.params(),
 						total_pixel_count,
 						image );
 			} );
@@ -68,7 +69,8 @@ a_transformer_t::handle_resize_request(
 	}
 }
 
-[[nodiscard]] Magick::Image
+[[nodiscard]]
+Magick::Image
 a_transformer_t::load_image( std::string_view image_name ) const
 {
 	Magick::Image image;
