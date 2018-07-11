@@ -7,6 +7,7 @@
 #include <catch/catch.hpp>
 
 #include <shrimp/cache_alike_container.hpp>
+#include <shrimp/key_multivalue_queue.hpp>
 
 #include <string>
 
@@ -158,7 +159,7 @@ TEST_CASE( "[multi-value] simple insert" )
 {
 	using namespace shrimp;
 
-	using cache_t = multivalue_cache_alike_container_t<std::string, std::string>;
+	using cache_t = key_multivalue_queue_t<std::string, std::string>;
 
 	cache_t cache;
 
@@ -181,7 +182,7 @@ TEST_CASE( "[multi-value] simple oldest" )
 {
 	using namespace shrimp;
 
-	using cache_t = multivalue_cache_alike_container_t<std::string, std::string>;
+	using cache_t = key_multivalue_queue_t<std::string, std::string>;
 
 	cache_t cache;
 
@@ -200,7 +201,7 @@ TEST_CASE( "[multi-value] oldest with erase" )
 {
 	using namespace shrimp;
 
-	using cache_t = multivalue_cache_alike_container_t<std::string, std::string>;
+	using cache_t = key_multivalue_queue_t<std::string, std::string>;
 
 	cache_t cache;
 
@@ -242,7 +243,7 @@ TEST_CASE( "[multi-value] extract oldest" )
 {
 	using namespace shrimp;
 
-	using cache_t = multivalue_cache_alike_container_t<std::string, std::string>;
+	using cache_t = key_multivalue_queue_t<std::string, std::string>;
 
 	cache_t cache;
 
@@ -288,7 +289,7 @@ TEST_CASE( "[multi-value] extract oldest-2" )
 {
 	using namespace shrimp;
 
-	using cache_t = multivalue_cache_alike_container_t<std::string, std::string>;
+	using cache_t = key_multivalue_queue_t<std::string, std::string>;
 
 	cache_t cache;
 
