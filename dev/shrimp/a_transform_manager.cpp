@@ -69,7 +69,7 @@ a_transform_manager_t::on_resize_request(
 				cmd.make_reference(),
 				*atoken );
 	else
-		handle_new_request(
+		handle_not_transformed_image(
 				std::move(request_key),
 				cmd.make_reference() );
 }
@@ -158,7 +158,7 @@ a_transform_manager_t::handle_request_for_already_transformed_image(
 			cmd->m_image_format,
 			http_header::image_src_t::cache,
 			make_header_fields_list(
-					http_header::shrimp_total_processing_time_hf, "0" ) );
+					http_header::shrimp_total_processing_time_hf(), "0" ) );
 }
 
 void
@@ -252,7 +252,7 @@ a_transform_manager_t::on_successful_resize(
 		serve_transformed_image(
 				std::move(rq->m_http_req),
 				result.m_image_blob,
-				cmd->m_image_format,
+				rq->m_image_format,
 				http_header::image_src_t::transform,
 				additional_headers );
 	}
@@ -265,7 +265,7 @@ a_transform_manager_t::on_failed_resize(
 {
 	for( auto & rq : requests )
 	{
-		do_404_response( std::move(cmd->m_http_req) );
+		do_404_response( std::move(rq->m_http_req) );
 	}
 }
 

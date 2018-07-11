@@ -64,6 +64,14 @@ class key_multivalue_queue_t
 	access_info_container_t m_access_info;
 	std::size_t m_unique_keys{};
 
+	[[nodiscard]]
+	static bool equals( const Key & a, const Key & b )
+		noexcept(noexcept(a < b))
+	{
+		return !(a < b) && !(b < a);
+	}
+		
+
 public :
 	class access_token_t 
 	{
@@ -122,8 +130,8 @@ public :
 
 		// Count of unique keys must be updated if it was a new key.
 		const auto is_unique = [&] {
-			return !(it != m_items.begin() &&
-				std::prev(it)->first == it->first);
+			return !( it != m_items.begin() &&
+				equals( std::prev(it)->first, it->first ) );
 		};
 		m_unique_keys += is_unique() ? 1u : 0u;
 	}
@@ -157,13 +165,13 @@ public :
 			const auto it = atoken.value_it();
 			if( it != m_items.begin() )
 			{
-				if( std::prev(it)->first == it->first )
+				if( equals( std::prev(it)->first, it->first ) )
 					return false;
 			}
 			const auto next = std::next(it);
 			if( next != m_items.end() )
 			{
-				if( next->first == it->first )
+				if( equals( next->first, it->first ) )
 					return false;
 			}
 
