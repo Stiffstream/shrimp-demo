@@ -134,6 +134,17 @@ public :
 		return m_items.find( key ) != m_items.end();
 	}
 
+	// Note: this method is not const because this access_token can
+	// be used for container modification later.
+	[[nodiscard]] std::optional<access_token_t>
+	find_first_for_key( const Key & key ) noexcept
+	{
+		if( auto it = m_items.find( key ); it != m_items.end() )
+			return access_token_t{ it };
+		else
+			return std::nullopt;
+	}
+
 	void
 	erase( access_token_t atoken ) noexcept
 	{
@@ -187,7 +198,7 @@ public :
 
 	template<typename L>
 	void
-	extract_values_for_key_of(
+	extract_values_for_key(
 		access_token_t atoken,
 		L && lambda )
 	{

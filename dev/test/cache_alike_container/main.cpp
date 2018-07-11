@@ -262,7 +262,7 @@ TEST_CASE( "[multi-value] extract oldest" )
 	{
 		auto l = cache.oldest();
 		std::vector<std::string> items;
-		cache.extract_values_for_key_of( std::move(l.value()),
+		cache.extract_values_for_key( std::move(l.value()),
 				[&items](auto && v) { items.push_back(std::move(v)); } );
 		REQUIRE( items == std::vector<std::string>{ { "F1"s, "F2"s, "F3"s } } );
 	}
@@ -308,7 +308,7 @@ TEST_CASE( "[multi-value] extract oldest-2" )
 	const auto check = [&cache](std::vector<std::string> expected) {
 		auto l = cache.oldest();
 		std::vector<std::string> items;
-		cache.extract_values_for_key_of( std::move(l.value()),
+		cache.extract_values_for_key( std::move(l.value()),
 				[&items](auto && v) { items.push_back(std::move(v)); } );
 		REQUIRE( items == expected );
 	};
@@ -321,5 +321,59 @@ TEST_CASE( "[multi-value] extract oldest-2" )
 	REQUIRE( 0u == cache.unique_keys() );
 
 	REQUIRE( cache.empty() );
+}
+
+TEST_CASE( "[multi-value] find_first_for_key and extract_values_for_key" )
+{
+	using namespace shrimp;
+
+	using cache_t = key_multivalue_queue_t<std::string, std::string>;
+
+	cache_t cache;
+
+	REQUIRE( cache.empty() );
+	REQUIRE( !cache.oldest() );
+
+	cache.insert( "first", "F1" );
+	cache.insert( "second", "S1" );
+	cache.insert( "first", "F2" );
+	cache.insert( "third", "T1" );
+	cache.insert( "second", "S2" );
+	cache.insert( "first", "F3" );
+
+	REQUIRE( 3u == cache.unique_keys() );
+
+	const auto check_oldest = [&cache](auto key, auto value) {
+		auto l = cache.oldest();
+		REQUIRE( l );
+		REQUIRE( l->key() == key );
+		REQUIRE( l->value() == value );
+		cache.erase( std::move(*l) );
+	};
+	const auto check_extraction = [&cache](
+			auto key,
+			std::vector<std::string> expected) {
+		auto l = cache.find_first_for_key( key );
+		REQUIRE( l );
+		std::vector<std::string> items;
+		cache.extract_values_for_key( std::move(l.value()),
+				[&items](auto && v) { items.push_back(std::move(v)); } );
+		REQUIRE( items == expected );
+	};
+
+	check_extraction( "second"s, { "S1"s, "S2"s } );
+	REQUIRE( 2u == cache.unique_keys() );
+
+	check_oldest( "first"s, "F1"s );
+	REQUIRE( 2u == cache.unique_keys() );
+
+	check_oldest( "first"s, "F2"s );
+	REQUIRE( 2u == cache.unique_keys() );
+
+	check_oldest( "third"s, "T1"s );
+	REQUIRE( 1u == cache.unique_keys() );
+
+	check_oldest( "first"s, "F3"s );
+	REQUIRE( 0u == cache.unique_keys() );
 }
 
