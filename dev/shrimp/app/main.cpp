@@ -13,6 +13,9 @@
 
 #include <clara/clara.hpp>
 
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/ansicolor_sink.h>
+
 #include <stdexcept>
 #include <iostream>
 
@@ -91,7 +94,29 @@ struct app_args_t
 	}
 };
 
-[[nodiscard]] auto
+[[nodiscard]]
+spdlog::sink_ptr
+make_logger_sink()
+{
+	auto sink = std::make_shared< spdlog::sinks::ansicolor_stdout_sink_mt >();
+	sink->set_level( spdlog::level::trace );
+	return sink;
+}
+
+[[nodiscard]]
+std::shared_ptr<spdlog::logger>
+make_logger(
+	const std::string & name,
+	spdlog::sink_ptr sink,
+	spdlog::level::level_enum level = spdlog::level::trace )
+{
+	auto logger = std::make_shared< spdlog::logger >( name, std::move(sink) );
+	logger->set_level( level );
+	return logger;
+}
+
+[[nodiscard]]
+auto
 calculate_thread_count()
 {
 	struct result_t {
@@ -107,7 +132,39 @@ calculate_thread_count()
 		return result_t{ max_io_threads, cores - max_io_threads };
 }
 
-[[nodiscard]] so_5::mbox_t
+//
+// spdlog_sobj_tracer_t
+//
+
+// Helper class for redirecting SObjectizer message delivery tracer
+// to spdlog::logger.
+class spdlog_sobj_tracer_t : public so_5::msg_tracing::tracer_t
+{
+	std::shared_ptr<spdlog::logger> m_logger;
+
+	public:
+		spdlog_sobj_tracer_t(
+			std::shared_ptr<spdlog::logger> logger )
+			:	m_logger{ std::move(logger) }
+		{}
+
+		virtual void
+		trace( const std::string & what ) noexcept override
+		{
+			m_logger->debug( what );
+		}
+
+		[[nodiscard]]
+		static so_5::msg_tracing::tracer_unique_ptr_t
+		make( spdlog::sink_ptr sink )
+		{
+			auto logger = make_logger( "sobjectizer", std::move(sink) );
+			return std::make_unique<spdlog_sobj_tracer_t>( std::move(logger) );
+		}
+};
+
+[[nodiscard]]
+so_5::mbox_t
 create_agents(
 	const shrimp::app_params_t & app_params,
 	so_5::environment_t & env,
@@ -154,6 +211,8 @@ run_app(
 	sobj_tracing_t sobj_tracing )
 {
 	const auto thread_count = calculate_thread_count();
+	auto logger_sink = make_logger_sink();
+	logger_sink->set_level( spdlog::level::debug );
 
 	// ASIO io_context must outlive sobjectizer.
 	asio::io_context asio_io_ctx;
@@ -168,7 +227,7 @@ run_app(
 		[&]( so_5::environment_params_t & params ) {
 			if( sobj_tracing_t::on == sobj_tracing )
 				params.message_delivery_tracer(
-						so_5::msg_tracing::std_cout_tracer() );
+						spdlog_sobj_tracer_t::make( logger_sink ) );
 		}
 	};
 
