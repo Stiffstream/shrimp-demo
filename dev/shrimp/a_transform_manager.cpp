@@ -20,8 +20,11 @@ namespace shrimp {
 //
 // a_transform_manager_t
 //
-a_transform_manager_t::a_transform_manager_t( context_t ctx )
+a_transform_manager_t::a_transform_manager_t(
+	context_t ctx,
+	std::shared_ptr<spdlog::logger> logger )
 	: so_5::agent_t{ std::move(ctx) }
+	, m_logger{ std::move(logger) }
 {}
 
 void
@@ -62,6 +65,7 @@ a_transform_manager_t::on_resize_request(
 	mutable_mhood_t<resize_request_t> cmd )
 {
 	transform::resize_request_key_t request_key{ cmd->m_image, cmd->m_params };
+	m_logger->info( "request received; request={}", request_key );
 
 	auto atoken = m_transformed_cache.lookup( request_key );
 	if( atoken )

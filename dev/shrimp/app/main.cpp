@@ -186,7 +186,8 @@ create_agents(
 				};
 
 			auto manager = coop.make_agent_with_binder< a_transform_manager_t >(
-					create_one_thread_disp( "manager" )->binder() );
+					create_one_thread_disp( "manager" )->binder(),
+					make_logger( "manager", logger_sink ) );
 			manager_mbox = manager->so_direct_mbox();
 
 			// Every worker will work on its own private dispatcher.
