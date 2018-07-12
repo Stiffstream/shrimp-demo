@@ -158,14 +158,15 @@ class spdlog_sobj_tracer_t : public so_5::msg_tracing::tracer_t
 		static so_5::msg_tracing::tracer_unique_ptr_t
 		make( spdlog::sink_ptr sink )
 		{
-			auto logger = make_logger( "sobjectizer", std::move(sink) );
-			return std::make_unique<spdlog_sobj_tracer_t>( std::move(logger) );
+			return std::make_unique<spdlog_sobj_tracer_t>(
+					make_logger( "sobjectizer", std::move(sink) ) );
 		}
 };
 
 [[nodiscard]]
 so_5::mbox_t
 create_agents(
+	spdlog::sink_ptr logger_sink,
 	const shrimp::app_params_t & app_params,
 	so_5::environment_t & env,
 	unsigned int worker_threads_count )
@@ -193,9 +194,10 @@ create_agents(
 					worker < worker_threads_count;
 					++worker )
 			{
+				const auto worker_name = fmt::format( "worker_{}", worker );
 				auto transformer = coop.make_agent_with_binder< a_transformer_t >(
-						create_one_thread_disp(
-							fmt::format( "worker_{}", worker ) )->binder(),
+						create_one_thread_disp( worker_name )->binder(),
+						make_logger( worker_name, logger_sink ),
 						app_params.m_storage );
 
 				manager->add_worker( transformer->so_direct_mbox() );
@@ -222,7 +224,11 @@ run_app(
 	so_5::wrapped_env_t sobj{
 		[&]( so_5::environment_t & env ) {
 			manager_mbox_promise.set_value(
-					create_agents( params, env, thread_count.m_worker_threads ) );
+					create_agents(
+							logger_sink,
+							params,
+							env,
+							thread_count.m_worker_threads ) );
 		},
 		[&]( so_5::environment_params_t & params ) {
 			if( sobj_tracing_t::on == sobj_tracing )

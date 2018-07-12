@@ -12,6 +12,8 @@
 #include <shrimp/a_transform_manager.hpp>
 #include <shrimp/app_params.hpp>
 
+#include <spdlog/spdlog.h>
+
 namespace shrimp {
 
 //
@@ -45,7 +47,10 @@ public:
 		{}
 	};
 
-	a_transformer_t( context_t ctx, storage_params_t cfg );
+	a_transformer_t(
+		context_t ctx,
+		std::shared_ptr<spdlog::logger> logger,
+		storage_params_t cfg );
 
 	virtual void
 	so_define_agent() override;
@@ -53,6 +58,9 @@ public:
 private:
 	//! A constraint for total count of pixel in resulting image.
 	static constexpr std::size_t total_pixel_count{ 5000ul*5000ul };
+
+	//! Personal logger for this agent.
+	std::shared_ptr<spdlog::logger> m_logger;
 
 	//! Configuration for agent.
 	const storage_params_t m_cfg;
