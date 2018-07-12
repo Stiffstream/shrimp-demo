@@ -112,6 +112,7 @@ make_logger(
 {
 	auto logger = std::make_shared< spdlog::logger >( name, std::move(sink) );
 	logger->set_level( level );
+	logger->flush_on( level );
 	return logger;
 }
 
@@ -151,7 +152,7 @@ class spdlog_sobj_tracer_t : public so_5::msg_tracing::tracer_t
 		virtual void
 		trace( const std::string & what ) noexcept override
 		{
-			m_logger->debug( what );
+			m_logger->trace( what );
 		}
 
 		[[nodiscard]]
@@ -215,7 +216,6 @@ run_app(
 {
 	const auto thread_count = calculate_thread_count();
 	auto logger_sink = make_logger_sink();
-	logger_sink->set_level( spdlog::level::debug );
 
 	// ASIO io_context must outlive sobjectizer.
 	asio::io_context asio_io_ctx;
