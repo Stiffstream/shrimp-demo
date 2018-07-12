@@ -17,7 +17,15 @@
 
 namespace shrimp {
 
-//FIXME: document this!
+/*
+ * A special container which can be used as a queue of key-value pairs.
+ * But there could be non-unique keys. In that case multiple values
+ * should be associated with a key. But chronological order of values
+ * inserted into queue must be preserved.
+ *
+ * Note. A timestamp is stored for every value inserted into queue.
+ * This timestamp can be used for checking a lifetime of a value.
+ */
 template<typename Key, typename Value>
 class key_multivalue_queue_t
 {

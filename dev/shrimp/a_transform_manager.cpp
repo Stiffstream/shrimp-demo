@@ -214,8 +214,8 @@ a_transform_manager_t::try_initiate_pending_requests_processing()
 					std::move(atoken),
 					[&]( auto && value ) {
 						m_inprogress_requests.insert(
-								//FIXME: const reference to key should be
-								//accepted here.
+								// insert() expect an rvalue, because of that
+								// we should create a copy of the key.
 								transform::resize_request_key_t{key},
 								std::move(value) );
 					} );
@@ -225,7 +225,6 @@ a_transform_manager_t::try_initiate_pending_requests_processing()
 		auto worker = std::move(m_free_workers.top());
 		m_free_workers.pop();
 		so_5::send< so_5::mutable_msg<a_transformer_t::resize_request_t> >(
-				so_environment(),
 				worker,
 				key,
 				so_direct_mbox() );
