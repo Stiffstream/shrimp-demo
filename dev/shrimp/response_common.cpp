@@ -11,7 +11,7 @@ namespace shrimp
 namespace /* anonymous */
 {
 
-[[nodiscard]] const char *
+[[nodiscard]] std::string_view
 image_src_to_str( http_header::image_src_t image_src )
 {
 	using http_header::image_src_t;
@@ -65,13 +65,15 @@ serve_transformed_image(
 			restinio::http_field::content_type,
 			image_content_type_from_img_format( img_format )  )
 		.append_header(
-			http_header::shrimp_image_src,
-			image_src_to_str( image_src ) )
+			restinio::http_header_field_t{
+				http_header::shrimp_image_src_hf(),
+				image_src_to_str( image_src )
+			} )
 		.set_body( std::move( blob ) );
 
 	for( auto & hf : header_fields )
 	{
-		resp.append_header( std::move( hf.m_name ), std::move( hf.m_value ) );
+		resp.append_header( std::move( hf ) );
 	}
 
 	resp.done();
@@ -93,27 +95,21 @@ serve_as_regular_file(
 	try
 	{
 		auto sf = restinio::sendfile( full_path );
+		const auto last_modified = sf.meta().last_modified_at();
 
 		auto resp = req->create_response();
 
-		struct stat64 file_stat;
-		const auto fstat_rc = fstat64( sf.file_descriptor(), &file_stat );
-
-		if( 0 != fstat_rc )
-		{
-			throw exception_t{
-				fmt::format( "unable to get file stats: {}", strerror( errno ) ) };
-		}
-
 		return set_common_header_fields_for_image_resp(
-					file_stat.st_mtim.tv_sec,
+					last_modified,
 					resp )
 				.append_header(
 					restinio::http_field::content_type,
 					image_content_type_from_img_format( image_format ) )
 				.append_header(
-					http_header::shrimp_image_src,
-					image_src_to_str( http_header::image_src_t::sendfile ) )
+					restinio::http_header_field_t{
+						http_header::shrimp_image_src_hf(),
+						image_src_to_str( http_header::image_src_t::sendfile )
+					} )
 				.set_body( std::move( sf ) )
 				.done();
 	}

@@ -5,7 +5,7 @@ MxxRu::arch_externals :so5 do |e|
 end
 
 MxxRu::arch_externals :restinio do |e|
-  e.url 'https://bitbucket.org/sobjectizerteam/restinio-0.4/downloads/restinio-0.4.6-full.tar.bz2'
+  e.url 'https://bitbucket.org/sobjectizerteam/restinio-0.4/downloads/restinio-0.4.7-full.tar.bz2'
 
   # RESTinio and its dependencies.
   e.map_dir 'dev/asio' => 'dev'

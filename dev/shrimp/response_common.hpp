@@ -37,13 +37,13 @@ set_common_header_fields( RESP & resp )
 template < typename RESP >
 inline RESP &
 set_common_header_fields_for_image_resp(
-	std::time_t last_modified,
+	std::chrono::system_clock::time_point last_modified,
 	RESP & resp  )
 {
 	set_common_header_fields( resp )
 		.append_header(
 			restinio::http_field_t::last_modified,
-			make_date_http_field_value( last_modified ) )
+			restinio::make_date_field_value( last_modified ) )
 		.append_header( "Access-Control-Allow-Origin", "*" )
 		.append_header( "Access-Control-Expose-Headers",
 				"Shrimp-Processing-Time, Shrimp-Image-Src" );
@@ -63,11 +63,10 @@ enum class connection_status_t { autodetect, keep, close };
 inline auto
 make_response_object(
 	restinio::request_handle_t req,
-	std::uint16_t status_code,
-	std::string reason_phrase,
+	restinio::http_status_line_t status_line,
 	connection_status_t conn_status )
 {
-	auto resp = req->create_response( status_code, std::move(reason_phrase) );
+	auto resp = req->create_response( std::move(status_line) );
 	set_common_header_fields( resp );
 
 	switch( conn_status )
@@ -102,7 +101,7 @@ do_404_response( restinio::request_handle_t req )
 {
 	return
 		response_common_details::make_response_object(
-				req, 404, "Not Found",
+				req, restinio::status_not_found(),
 				response_common_details::connection_status_t::autodetect )
 		.done();
 }
@@ -116,7 +115,7 @@ do_400_response( restinio::request_handle_t req )
 {
 	return
 		response_common_details::make_response_object(
-				req, 400, "Bad Request",
+				req, restinio::status_bad_request(),
 				response_common_details::connection_status_t::autodetect )
 		.done();
 }
@@ -130,7 +129,7 @@ do_503_response( restinio::request_handle_t req )
 {
 	return
 		response_common_details::make_response_object(
-				req, 503, "Service Unavailable",
+				req, restinio::status_service_unavailable(),
 				// Not too much sense to keep the connection.
 				response_common_details::connection_status_t::close )
 		.done();
@@ -145,7 +144,7 @@ do_504_response( restinio::request_handle_t req )
 {
 	return
 		response_common_details::make_response_object(
-				req, 504, "Gateway Timeout",
+				req, restinio::status_gateway_time_out(),
 				// Not too much sense to keep the connection.
 				response_common_details::connection_status_t::close )
 		.done();
@@ -185,13 +184,14 @@ make_header_fields_list(
 namespace http_header
 {
 
+[[nodiscard]]
 inline std::string_view
-shrimp_total_processing_time_hf()
-{
-	return { "Shrimp-Processing-Time" };
+shrimp_total_processing_time_hf() { return { "Shrimp-Processing-Time" };
 }
 
-constexpr char shrimp_image_src[] = "Shrimp-Image-Src";
+[[nodiscard]]
+inline std::string_view
+shrimp_image_src_hf() { return "Shrimp-Image-Src"; }
 
 //! Server image source.
 enum class image_src_t
@@ -219,7 +219,8 @@ serve_transformed_image(
 // serve_as_regular_file()
 //
 
-[[nodiscard]] restinio::request_handling_status_t
+[[nodiscard]]
+restinio::request_handling_status_t
 serve_as_regular_file(
 	const std::string & root_dir,
 	restinio::request_handle_t req,

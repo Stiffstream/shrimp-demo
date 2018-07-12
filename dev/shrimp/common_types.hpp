@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <ctime>
 #include <iosfwd>
 #include <memory>
@@ -86,7 +87,8 @@ struct datasizable_blob_t : public std::enable_shared_from_this< datasizable_blo
 	Magick::Blob m_blob;
 
 	//! Value for `Last-Modified` http header field.
-	const std::time_t m_last_modified_at{ std::time( nullptr ) };
+	const std::chrono::system_clock::time_point m_last_modified_at{
+			std::chrono::system_clock::now() };
 };
 
 using datasizable_blob_shared_ptr_t = std::shared_ptr< datasizable_blob_t >;
