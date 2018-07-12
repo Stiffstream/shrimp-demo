@@ -22,3 +22,5 @@ o/*
 *.swp
 *.log
 dev/local-build.rb
+dev/_initiate_*.sh
+

@@ -140,6 +140,8 @@ a_transform_manager_t::on_check_pending_requests(
 			m_pending_requests.erase( std::move(atoken) );
 			do_504_response( std::move(http_req) );
 		}
+		else
+			break;
 	}
 }
 
@@ -223,6 +225,7 @@ a_transform_manager_t::try_initiate_pending_requests_processing()
 		auto worker = std::move(m_free_workers.top());
 		m_free_workers.pop();
 		so_5::send< so_5::mutable_msg<a_transformer_t::resize_request_t> >(
+				so_environment(),
 				worker,
 				key,
 				so_direct_mbox() );
