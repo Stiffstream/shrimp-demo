@@ -42,10 +42,12 @@ set_common_header_fields_for_image_resp(
 {
 	set_common_header_fields( resp )
 		.append_header(
-			restinio::http_field_t::last_modified,
-			restinio::make_date_field_value( last_modified ) )
-		.append_header( "Access-Control-Allow-Origin", "*" )
-		.append_header( "Access-Control-Expose-Headers",
+				restinio::http_field_t::last_modified,
+				restinio::make_date_field_value( last_modified ) )
+		.append_header(
+				restinio::http_field_t::access_control_allow_origin, "*" )
+		.append_header(
+				"Access-Control-Expose-Headers",
 				"Shrimp-Processing-Time, Shrimp-Image-Src" );
 
 	return resp;
