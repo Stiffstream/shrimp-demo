@@ -18,8 +18,10 @@ namespace shrimp {
 //
 a_transformer_t::a_transformer_t(
 	context_t ctx,
+	std::shared_ptr<spdlog::logger> logger,
 	storage_params_t cfg )
 	: so_5::agent_t{ std::move(ctx) }
+	, m_logger{ std::move(logger) }
 	, m_cfg{ std::move(cfg) }
 {}
 
@@ -50,14 +52,20 @@ a_transformer_t::handle_resize_request(
 {
 	try
 	{
+		m_logger->trace( "transformation started; request_key={}", key );
+
 		auto image = load_image( key.path() );
 
-		const auto duration = measure_duration_ms( [&]{
+		const auto duration = measure_duration( [&]{
 				transform::resize(
 						key.params(),
 						total_pixel_count,
 						image );
 			} );
+		m_logger->debug( "transformation finished; request_key={}, time={}ms",
+				key,
+				std::chrono::duration_cast<std::chrono::milliseconds>(
+						duration).count() );
 
 		return a_transform_manager_t::successful_resize_t{
 				make_blob( image ),

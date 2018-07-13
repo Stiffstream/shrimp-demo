@@ -16,6 +16,8 @@ dev/fmt_mxxru
 dev/clara
 dev/catch
 dev/cmake_build*
+dev/spdlog
+dev/spdlog_mxxru
 o/*
 *.sublime-project
 *.sublime-workspace

@@ -16,6 +16,8 @@
 #include <so_5/all.hpp>
 #include <restinio/all.hpp>
 
+#include <spdlog/spdlog.h>
+
 #include <queue>
 #include <stack>
 #include <variant>
@@ -115,7 +117,9 @@ public:
 		{}
 	};
 
-	a_transform_manager_t( context_t ctx );
+	a_transform_manager_t(
+		context_t ctx,
+		std::shared_ptr<spdlog::logger> logger );
 
 	virtual void
 	so_define_agent() override;
@@ -154,6 +158,9 @@ private :
 
 	//! A special signal to check lifetime of pending requests.
 	struct check_pending_requests_t final : public so_5::signal_t {};
+
+	//! Personal logger for this agent.
+	std::shared_ptr<spdlog::logger> m_logger;
 
 	//! Cache of processed images.
 	cache_t m_transformed_cache;
@@ -226,6 +233,7 @@ private :
 
 	void
 	on_failed_resize(
+		transform::resize_request_key_t key,
 		failed_resize_t & result,
 		original_request_container_t requests );
 

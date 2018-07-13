@@ -33,6 +33,18 @@ MxxRu::arch_externals :fmtlib_mxxru do |e|
   e.map_dir 'dev/fmt_mxxru' => 'dev'
 end
 
+MxxRu::arch_externals :spdlog do |e|
+  e.url 'https://github.com/gabime/spdlog/archive/v0.17.0.zip'
+
+  e.map_dir 'include' => 'dev/spdlog'
+end
+
+MxxRu::arch_externals :spdlog_mxxru do |e|
+  e.url 'https://bitbucket.org/sobjectizerteam/spdlog_mxxru-1.2/get/v.1.2.0.tar.bz2'
+
+  e.map_dir 'dev/spdlog_mxxru' => 'dev'
+end
+
 MxxRu::arch_externals :clara do |e|
   e.url 'https://github.com/catchorg/Clara/archive/v1.1.4.tar.gz'
 

@@ -13,6 +13,9 @@
 
 #include <clara/clara.hpp>
 
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/ansicolor_sink.h>
+
 #include <stdexcept>
 #include <iostream>
 
@@ -20,16 +23,36 @@ namespace /* anonymous */
 {
 
 enum class sobj_tracing_t { off, on };
+enum class restinio_tracing_t { off, on };
 
 //! Application arg parser.
 struct app_args_t
 {
 	bool m_help{ false };
 	sobj_tracing_t m_sobj_tracing{ sobj_tracing_t::off };
+	restinio_tracing_t m_restinio_tracing{ restinio_tracing_t::off };
+	spdlog::level::level_enum m_log_level{ spdlog::level::trace };
 
 	shrimp::app_params_t m_app_params;
 
-	[[nodiscard]] static app_args_t
+	[[nodiscard]]
+	static std::optional<spdlog::level::level_enum>
+	log_level_from_str( const std::string & level_name ) noexcept
+	{
+		if( "off" != level_name )
+		{
+			const auto l = spdlog::level::from_str( level_name );
+			if( spdlog::level::off != l )
+				return l;
+			else
+				return std::nullopt;
+		}
+		else
+			return spdlog::level::off;
+	}
+
+	[[nodiscard]]
+	static app_args_t
 	parse( int argc, const char * argv[] )
 	{
 		using namespace clara;
@@ -38,6 +61,8 @@ struct app_args_t
 		std::uint16_t ip_version = static_cast<std::uint16_t>(
 				result.m_app_params.m_http_server.m_ip_version);
 		bool sobj_tracing = false;
+		bool restinio_tracing = false;
+		std::string log_level{ "trace" };
 
 		const auto make_opt = [](auto & val,
 				const char * name, const char * short_name, const char * long_name,
@@ -65,6 +90,15 @@ struct app_args_t
 			| Opt( sobj_tracing )
 					[ "--sobj-tracing" ]
 					( "Turn SObjectizer's message delivery tracing on" )
+			| Opt( restinio_tracing )
+					[ "--restinio-tracing" ]
+					( "Turn RESTinio tracing facility on" )
+			| make_opt(
+					log_level, "log-level",
+					"-l", "--log-level",
+					"Minimal log level from the list: "
+					"(trace, debug, info, warning, error, critical, off), "
+					"(default: {})" )
 			| Help(result.m_help);
 
 		auto parse_result = cli.parse( Args(argc, argv) );
@@ -87,11 +121,43 @@ struct app_args_t
 		if( sobj_tracing )
 			result.m_sobj_tracing = sobj_tracing_t::on;
 
+		if( restinio_tracing )
+			result.m_restinio_tracing = restinio_tracing_t::on;
+
+		if( const auto actual_log_level = log_level_from_str( log_level );
+				!actual_log_level )
+			throw shrimp::exception_t{
+					"Invalid value for log level: {}", log_level };
+		else
+			result.m_log_level = *actual_log_level;
+
 		return result;
 	}
 };
 
-[[nodiscard]] auto
+[[nodiscard]]
+spdlog::sink_ptr
+make_logger_sink()
+{
+	auto sink = std::make_shared< spdlog::sinks::ansicolor_stdout_sink_mt >();
+	return sink;
+}
+
+[[nodiscard]]
+std::shared_ptr<spdlog::logger>
+make_logger(
+	const std::string & name,
+	spdlog::sink_ptr sink,
+	spdlog::level::level_enum level = spdlog::level::trace )
+{
+	auto logger = std::make_shared< spdlog::logger >( name, std::move(sink) );
+	logger->set_level( level );
+	logger->flush_on( level );
+	return logger;
+}
+
+[[nodiscard]]
+auto
 calculate_thread_count()
 {
 	struct result_t {
@@ -107,8 +173,41 @@ calculate_thread_count()
 		return result_t{ max_io_threads, cores - max_io_threads };
 }
 
-[[nodiscard]] so_5::mbox_t
+//
+// spdlog_sobj_tracer_t
+//
+
+// Helper class for redirecting SObjectizer message delivery tracer
+// to spdlog::logger.
+class spdlog_sobj_tracer_t : public so_5::msg_tracing::tracer_t
+{
+	std::shared_ptr<spdlog::logger> m_logger;
+
+	public:
+		spdlog_sobj_tracer_t(
+			std::shared_ptr<spdlog::logger> logger )
+			:	m_logger{ std::move(logger) }
+		{}
+
+		virtual void
+		trace( const std::string & what ) noexcept override
+		{
+			m_logger->trace( what );
+		}
+
+		[[nodiscard]]
+		static so_5::msg_tracing::tracer_unique_ptr_t
+		make( spdlog::sink_ptr sink )
+		{
+			return std::make_unique<spdlog_sobj_tracer_t>(
+					make_logger( "sobjectizer", std::move(sink) ) );
+		}
+};
+
+[[nodiscard]]
+so_5::mbox_t
 create_agents(
+	spdlog::sink_ptr logger_sink,
 	const shrimp::app_params_t & app_params,
 	so_5::environment_t & env,
 	unsigned int worker_threads_count )
@@ -128,7 +227,8 @@ create_agents(
 				};
 
 			auto manager = coop.make_agent_with_binder< a_transform_manager_t >(
-					create_one_thread_disp( "manager" )->binder() );
+					create_one_thread_disp( "manager" )->binder(),
+					make_logger( "manager", logger_sink ) );
 			manager_mbox = manager->so_direct_mbox();
 
 			// Every worker will work on its own private dispatcher.
@@ -136,9 +236,10 @@ create_agents(
 					worker < worker_threads_count;
 					++worker )
 			{
+				const auto worker_name = fmt::format( "worker_{}", worker );
 				auto transformer = coop.make_agent_with_binder< a_transformer_t >(
-						create_one_thread_disp(
-							fmt::format( "worker_{}", worker ) )->binder(),
+						create_one_thread_disp( worker_name )->binder(),
+						make_logger( worker_name, logger_sink ),
 						app_params.m_storage );
 
 				manager->add_worker( transformer->so_direct_mbox() );
@@ -151,9 +252,13 @@ create_agents(
 void
 run_app(
 	const shrimp::app_params_t & params,
-	sobj_tracing_t sobj_tracing )
+	spdlog::level::level_enum log_level,
+	sobj_tracing_t sobj_tracing,
+	restinio_tracing_t restinio_tracing )
 {
 	const auto thread_count = calculate_thread_count();
+	auto logger_sink = make_logger_sink();
+	logger_sink->set_level( log_level );
 
 	// ASIO io_context must outlive sobjectizer.
 	asio::io_context asio_io_ctx;
@@ -163,22 +268,33 @@ run_app(
 	so_5::wrapped_env_t sobj{
 		[&]( so_5::environment_t & env ) {
 			manager_mbox_promise.set_value(
-					create_agents( params, env, thread_count.m_worker_threads ) );
+					create_agents(
+							logger_sink,
+							params,
+							env,
+							thread_count.m_worker_threads ) );
 		},
 		[&]( so_5::environment_params_t & params ) {
 			if( sobj_tracing_t::on == sobj_tracing )
 				params.message_delivery_tracer(
-						so_5::msg_tracing::std_cout_tracer() );
+						spdlog_sobj_tracer_t::make( logger_sink ) );
 		}
 	};
 
 	// Now we can launch HTTP-server.
+	// Logger object is necessary even if logging for RESTinio is turned off.
+	auto restinio_logger = make_logger(
+			"restinio",
+			logger_sink,
+			restinio_tracing_t::off == restinio_tracing ?
+					spdlog::level::off : log_level );
 	// If SObjectizer is not started yet we will wait on the future::get() call.
 	restinio::run(
 			asio_io_ctx,
 			shrimp::make_http_server_settings(
 					thread_count.m_io_threads,
 					params,
+					std::move(restinio_logger),
 					manager_mbox_promise.get_future().get() ) );
 }
 
@@ -193,7 +309,11 @@ main( int argc, const char * argv[] )
 
 		if( !args.m_help )
 		{
-			run_app( args.m_app_params, args.m_sobj_tracing );
+			run_app(
+					args.m_app_params,
+					args.m_log_level,
+					args.m_sobj_tracing,
+					args.m_restinio_tracing );
 		}
 	}
 	catch( const std::exception & ex )

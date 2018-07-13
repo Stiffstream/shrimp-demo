@@ -56,7 +56,7 @@ make_date_http_field_value( std::time_t t )
 //! Measure some operation duration.
 template < typename F >
 auto
-measure_duration_ms( F && f )
+measure_duration( F && f )
 {
 	using hi_clock = std::chrono::high_resolution_clock;
 	const auto started_at = hi_clock::now();
