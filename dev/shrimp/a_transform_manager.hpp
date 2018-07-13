@@ -233,6 +233,7 @@ private :
 
 	void
 	on_failed_resize(
+		transform::resize_request_key_t key,
 		failed_resize_t & result,
 		original_request_container_t requests );
 

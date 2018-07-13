@@ -65,7 +65,9 @@ a_transform_manager_t::on_resize_request(
 	mutable_mhood_t<resize_request_t> cmd )
 {
 	transform::resize_request_key_t request_key{ cmd->m_image, cmd->m_params };
-	m_logger->trace( "request received; request={}", request_key );
+	m_logger->trace( "request received; request_key={}, connection_id={}",
+			request_key,
+			cmd->m_http_req->connection_id() );
 
 	auto atoken = m_transformed_cache.lookup( request_key );
 	if( atoken )
@@ -82,6 +84,10 @@ void
 a_transform_manager_t::on_resize_result(
 	mutable_mhood_t<resize_result_t> cmd )
 {
+	m_logger->trace( "resize_result received; request_key={}, worker_mbox={}",
+			cmd->m_key,
+			cmd->m_worker->id() );
+
 	// Worker now can be stored as free and processing of
 	// some pending request can be initiated.
 	m_free_workers.push( std::move(cmd->m_worker) );
@@ -102,6 +108,7 @@ a_transform_manager_t::on_resize_result(
 			},
 			[&]( failed_resize_t & result ) {
 				on_failed_resize(
+						std::move(key),
 						result,
 						std::move(requests) );
 			} },
@@ -141,6 +148,12 @@ a_transform_manager_t::on_check_pending_requests(
 		{
 			// This request should be removed.
 			auto http_req = std::move(atoken.value()->m_http_req);
+
+			m_logger->warn( "reject pending request, too long waiting time; "
+					"request_key={}, connection_id={}",
+					atoken.key(),
+					http_req->connection_id() );
+
 			m_pending_requests.erase( std::move(atoken) );
 			do_504_response( std::move(http_req) );
 		}
@@ -154,6 +167,9 @@ a_transform_manager_t::handle_request_for_already_transformed_image(
 	sobj_shptr_t<resize_request_t> cmd,
 	cache_t::access_token_t atoken )
 {
+	m_logger->debug( "transformed image is present in cache; request_key={}",
+			atoken.key() );
+
 	// Access time for the cached image should be updated on every access.
 	m_transformed_cache.update_access_time( atoken );
 
@@ -179,24 +195,38 @@ a_transform_manager_t::handle_not_transformed_image(
 	if( m_inprogress_requests.has_key( request_key ) )
 	{
 		// Same request is already in progress.
+		m_logger->debug( "same request is already in progress; request_key={}",
+				request_key );
+
 		// New request must be stored as in-progress request.
 		store_to( m_inprogress_requests );
 	}
 	else if( m_pending_requests.has_key( request_key ) )
 	{
 		// Same request is already pending for free worker.
+		m_logger->debug( "same request is already pending; request_key={}",
+				request_key );
+
 		store_to( m_pending_requests );
 	}
 	else if( m_pending_requests.unique_keys() < max_pending_requests )
 	{
 		// This is a new request and we can store it as pending request.
+		m_logger->debug( "store request to pending requests queue; request_key={}",
+				request_key );
+
 		store_to( m_pending_requests );
+
 		// If there is a free worker then we can push a request to processing.
 		try_initiate_pending_requests_processing();
 	}
 	else 
 	{
 		// We are overloaded.
+		m_logger->warn( "request is rejected because of overloading; "
+				"request_key={}",
+				request_key );
+
 		do_503_response( std::move(cmd->m_http_req) );
 	}
 }
@@ -228,6 +258,11 @@ a_transform_manager_t::try_initiate_pending_requests_processing()
 		// Allocate a worker for that image.
 		auto worker = std::move(m_free_workers.top());
 		m_free_workers.pop();
+
+		m_logger->trace( "initiate processing of a request; "
+				"request_key={}, worker_mbox={}",
+				key, worker->id() );
+
 		so_5::send< so_5::mutable_msg<a_transformer_t::resize_request_t> >(
 				worker,
 				key,
@@ -241,6 +276,10 @@ a_transform_manager_t::on_successful_resize(
 	successful_resize_t & result,
 	original_request_container_t requests )
 {
+	m_logger->debug( "successul resize result; request_key={}, blob_size={}",
+			key,
+			result.m_image_blob->size() );
+
 	store_transformed_image_to_cache(
 			std::move(key),
 			datasizable_blob_shared_ptr_t{ result.m_image_blob } );
@@ -254,6 +293,11 @@ a_transform_manager_t::on_successful_resize(
 
 	for( auto & rq : requests )
 	{
+		m_logger->trace( "sending positive response back; "
+				"request_key={}, connection_id={}",
+				key,
+				rq->m_http_req->connection_id() );
+
 		// Transformed image can be sent as response.
 		serve_transformed_image(
 				std::move(rq->m_http_req),
@@ -266,11 +310,21 @@ a_transform_manager_t::on_successful_resize(
 
 void
 a_transform_manager_t::on_failed_resize(
-	failed_resize_t & /*result*/,
+	transform::resize_request_key_t key,
+	failed_resize_t & result,
 	original_request_container_t requests )
 {
+	m_logger->warn( "failed resize; request_key={}, reason={}",
+			key,
+			result.m_reason );
+
 	for( auto & rq : requests )
 	{
+		m_logger->trace( "sending negative response back; "
+				"request_key={}, connection_id={}",
+				key,
+				rq->m_http_req->connection_id() );
+
 		do_404_response( std::move(rq->m_http_req) );
 	}
 }

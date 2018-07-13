@@ -52,7 +52,7 @@ a_transformer_t::handle_resize_request(
 {
 	try
 	{
-		m_logger->trace( "processing started; request={}", key );
+		m_logger->trace( "processing started; request_key={}", key );
 
 		auto image = load_image( key.path() );
 
@@ -62,7 +62,7 @@ a_transformer_t::handle_resize_request(
 						total_pixel_count,
 						image );
 			} );
-		m_logger->debug( "transformation finished; request={}, time={}ms",
+		m_logger->debug( "transformation finished; request_key={}, time={}ms",
 				key,
 				std::chrono::duration_cast<std::chrono::milliseconds>(
 						duration).count() );
