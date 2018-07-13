@@ -23,19 +23,21 @@ namespace /* anonymous */
 {
 
 enum class sobj_tracing_t { off, on };
+enum class restinio_tracing_t { off, on };
 
 //! Application arg parser.
 struct app_args_t
 {
 	bool m_help{ false };
 	sobj_tracing_t m_sobj_tracing{ sobj_tracing_t::off };
+	restinio_tracing_t m_restinio_tracing{ restinio_tracing_t::off };
 	spdlog::level::level_enum m_log_level{ spdlog::level::trace };
 
 	shrimp::app_params_t m_app_params;
 
 	[[nodiscard]]
 	static std::optional<spdlog::level::level_enum>
-	log_level_from_str( const std::string & level_name )
+	log_level_from_str( const std::string & level_name ) noexcept
 	{
 		if( "off" != level_name )
 		{
@@ -59,6 +61,7 @@ struct app_args_t
 		std::uint16_t ip_version = static_cast<std::uint16_t>(
 				result.m_app_params.m_http_server.m_ip_version);
 		bool sobj_tracing = false;
+		bool restinio_tracing = false;
 		std::string log_level{ "trace" };
 
 		const auto make_opt = [](auto & val,
@@ -87,6 +90,9 @@ struct app_args_t
 			| Opt( sobj_tracing )
 					[ "--sobj-tracing" ]
 					( "Turn SObjectizer's message delivery tracing on" )
+			| Opt( restinio_tracing )
+					[ "--restinio-tracing" ]
+					( "Turn RESTinio tracing facility on" )
 			| make_opt(
 					log_level, "log-level",
 					"-l", "--log-level",
@@ -114,6 +120,9 @@ struct app_args_t
 
 		if( sobj_tracing )
 			result.m_sobj_tracing = sobj_tracing_t::on;
+
+		if( restinio_tracing )
+			result.m_restinio_tracing = restinio_tracing_t::on;
 
 		if( const auto actual_log_level = log_level_from_str( log_level );
 				!actual_log_level )
@@ -244,7 +253,8 @@ void
 run_app(
 	const shrimp::app_params_t & params,
 	spdlog::level::level_enum log_level,
-	sobj_tracing_t sobj_tracing )
+	sobj_tracing_t sobj_tracing,
+	restinio_tracing_t restinio_tracing )
 {
 	const auto thread_count = calculate_thread_count();
 	auto logger_sink = make_logger_sink();
@@ -272,12 +282,19 @@ run_app(
 	};
 
 	// Now we can launch HTTP-server.
+	// Logger object is necessary even if logging for RESTinio is turned off.
+	auto restinio_logger = make_logger(
+			"restinio",
+			logger_sink,
+			restinio_tracing_t::off == restinio_tracing ?
+					spdlog::level::off : log_level );
 	// If SObjectizer is not started yet we will wait on the future::get() call.
 	restinio::run(
 			asio_io_ctx,
 			shrimp::make_http_server_settings(
 					thread_count.m_io_threads,
 					params,
+					std::move(restinio_logger),
 					manager_mbox_promise.get_future().get() ) );
 }
 
@@ -295,7 +312,8 @@ main( int argc, const char * argv[] )
 			run_app(
 					args.m_app_params,
 					args.m_log_level,
-					args.m_sobj_tracing );
+					args.m_sobj_tracing,
+					args.m_restinio_tracing );
 		}
 	}
 	catch( const std::exception & ex )
