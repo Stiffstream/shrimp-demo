@@ -52,7 +52,7 @@ a_transformer_t::handle_resize_request(
 {
 	try
 	{
-		m_logger->trace( "processing started; request_key={}", key );
+		m_logger->trace( "transformation started; request_key={}", key );
 
 		auto image = load_image( key.path() );
 

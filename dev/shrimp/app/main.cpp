@@ -29,10 +29,28 @@ struct app_args_t
 {
 	bool m_help{ false };
 	sobj_tracing_t m_sobj_tracing{ sobj_tracing_t::off };
+	spdlog::level::level_enum m_log_level{ spdlog::level::trace };
 
 	shrimp::app_params_t m_app_params;
 
-	[[nodiscard]] static app_args_t
+	[[nodiscard]]
+	static std::optional<spdlog::level::level_enum>
+	log_level_from_str( const std::string & level_name )
+	{
+		if( "off" != level_name )
+		{
+			const auto l = spdlog::level::from_str( level_name );
+			if( spdlog::level::off != l )
+				return l;
+			else
+				return std::nullopt;
+		}
+		else
+			return spdlog::level::off;
+	}
+
+	[[nodiscard]]
+	static app_args_t
 	parse( int argc, const char * argv[] )
 	{
 		using namespace clara;
@@ -41,6 +59,7 @@ struct app_args_t
 		std::uint16_t ip_version = static_cast<std::uint16_t>(
 				result.m_app_params.m_http_server.m_ip_version);
 		bool sobj_tracing = false;
+		std::string log_level{ "trace" };
 
 		const auto make_opt = [](auto & val,
 				const char * name, const char * short_name, const char * long_name,
@@ -68,6 +87,12 @@ struct app_args_t
 			| Opt( sobj_tracing )
 					[ "--sobj-tracing" ]
 					( "Turn SObjectizer's message delivery tracing on" )
+			| make_opt(
+					log_level, "log-level",
+					"-l", "--log-level",
+					"Minimal log level from the list: "
+					"(trace, debug, info, warning, error, critical, off), "
+					"(default: {})" )
 			| Help(result.m_help);
 
 		auto parse_result = cli.parse( Args(argc, argv) );
@@ -90,6 +115,13 @@ struct app_args_t
 		if( sobj_tracing )
 			result.m_sobj_tracing = sobj_tracing_t::on;
 
+		if( const auto actual_log_level = log_level_from_str( log_level );
+				!actual_log_level )
+			throw shrimp::exception_t{
+					"Invalid value for log level: {}", log_level };
+		else
+			result.m_log_level = *actual_log_level;
+
 		return result;
 	}
 };
@@ -99,7 +131,6 @@ spdlog::sink_ptr
 make_logger_sink()
 {
 	auto sink = std::make_shared< spdlog::sinks::ansicolor_stdout_sink_mt >();
-	sink->set_level( spdlog::level::trace );
 	return sink;
 }
 
@@ -212,10 +243,12 @@ create_agents(
 void
 run_app(
 	const shrimp::app_params_t & params,
+	spdlog::level::level_enum log_level,
 	sobj_tracing_t sobj_tracing )
 {
 	const auto thread_count = calculate_thread_count();
 	auto logger_sink = make_logger_sink();
+	logger_sink->set_level( log_level );
 
 	// ASIO io_context must outlive sobjectizer.
 	asio::io_context asio_io_ctx;
@@ -259,7 +292,10 @@ main( int argc, const char * argv[] )
 
 		if( !args.m_help )
 		{
-			run_app( args.m_app_params, args.m_sobj_tracing );
+			run_app(
+					args.m_app_params,
+					args.m_log_level,
+					args.m_sobj_tracing );
 		}
 	}
 	catch( const std::exception & ex )
