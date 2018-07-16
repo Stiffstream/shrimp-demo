@@ -158,6 +158,32 @@ add_transform_op_handler(
 	} );
 }
 
+void
+add_delete_cache_handler(
+	http_req_router_t & router,
+	so_5::mbox_t req_handler_mbox )
+{
+	router.http_delete(
+			"/cache",
+			[req_handler_mbox]( auto req, auto /*params*/ )
+			{
+				const auto qp = restinio::parse_query( req->header().query() );
+				auto token = qp.get_param( "token"sv );
+				if( !token )
+				{
+					return do_403_response( req, "No token provided\r\n" );
+				}
+
+				// Delegate request processing to transform_manager.
+				so_5::send< so_5::mutable_msg<a_transform_manager_t::delete_cache_request_t> >(
+						req_handler_mbox,
+						req,
+						restinio::cast_to<std::string>(*token) );
+
+				return restinio::request_accepted();
+			} );
+}
+
 } /* namespace anonymous */
 
 std::unique_ptr< http_req_router_t >
@@ -168,6 +194,7 @@ make_router(
 	auto router = std::make_unique< http_req_router_t >();
 
 	add_transform_op_handler( params, *router, req_handler_mbox );
+	add_delete_cache_handler( *router, req_handler_mbox );
 
 	return router;
 }
