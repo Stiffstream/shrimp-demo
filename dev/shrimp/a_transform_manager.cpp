@@ -33,6 +33,8 @@ a_transform_manager_t::so_define_agent()
 	so_subscribe_self()
 			.event( &a_transform_manager_t::on_resize_request )
 			.event( &a_transform_manager_t::on_resize_result )
+			.event( &a_transform_manager_t::on_delete_cache_request )
+			.event( &a_transform_manager_t::on_negative_delete_cache_response )
 			.event( &a_transform_manager_t::on_clear_cache )
 			.event( &a_transform_manager_t::on_check_pending_requests );
 }
@@ -113,6 +115,69 @@ a_transform_manager_t::on_resize_result(
 						std::move(requests) );
 			} },
 			cmd->m_result );
+}
+
+void
+a_transform_manager_t::on_delete_cache_request(
+	mutable_mhood_t<delete_cache_request_t> cmd )
+{
+	m_logger->warn( "delete cache request received; "
+			"connection_id={}, token={}",
+			cmd->m_http_req->connection_id(),
+			cmd->m_token );
+
+	const auto delay_response = [&]( std::string response_text ) {
+		so_5::send_delayed< so_5::mutable_msg<negative_delete_cache_response_t> >(
+				*this,
+				std::chrono::seconds{7},
+				std::move(cmd->m_http_req),
+				std::move(response_text) );
+	};
+
+	if( const char * env_token = std::getenv( "SHRIMP_ADMIN_TOKEN" );
+			// Token must be present and must not be empty.
+			env_token && *env_token )
+	{
+		if( cmd->m_token == env_token )
+		{
+			m_transformed_cache.clear();
+
+			m_logger->info( "cache deleted" );
+
+			do_200_plaintext_response(
+					std::move(cmd->m_http_req),
+					"Cache deleted\r\n" );
+		}
+		else
+		{
+			m_logger->error( "invalid token value for delete cache request; "
+					"token={}",
+					cmd->m_token );
+
+			delay_response( "Token value mismatch\r\n" );
+		}
+	}
+	else
+	{
+		m_logger->warn( "delete cache can't performed because there is no "
+				"admin token defined" );
+
+		// Operation can't be performed because admin token is not avaliable.
+		delay_response( "No admin token defined\r\n" );
+	}
+}
+
+void
+a_transform_manager_t::on_negative_delete_cache_response(
+	mutable_mhood_t<negative_delete_cache_response_t> cmd )
+{
+	m_logger->debug( "send negative response to delete cache request; "
+			"connection_id={}",
+			cmd->m_http_req->connection_id() );
+
+	do_403_response(
+			std::move(cmd->m_http_req),
+			std::move(cmd->m_response_text) );
 }
 
 void

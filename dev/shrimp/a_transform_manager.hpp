@@ -116,6 +116,25 @@ public:
 			, m_result{ std::move(result) }
 		{}
 	};
+	
+	//! A request for cleaning the cache of transformed image.
+	/*!
+	 * \note This message must be sent as a mutable message.
+	 */
+	struct delete_cache_request_t final : public so_5::message_t
+	{
+		//! Original HTTP-request.
+		restinio::request_handle_t m_http_req;
+		//! Value of access-token to be checked.
+		std::string m_token;
+
+		delete_cache_request_t(
+			restinio::request_handle_t http_req,
+			std::string token )
+			: m_http_req{ std::move(http_req) }
+			, m_token{ std::move(token) }
+		{}
+	};
 
 	a_transform_manager_t(
 		context_t ctx,
@@ -136,6 +155,26 @@ public:
 	add_worker( so_5::mbox_t worker );
 
 private :
+	//! A delayed message to send a negative response for
+	//! delete cache request.
+	/*!
+	 * \note This message must be sent as a mutable message.
+	 */
+	struct negative_delete_cache_response_t : public so_5::message_t
+	{
+		//! Original HTTP-request.
+		restinio::request_handle_t m_http_req;
+		//! Description for request.
+		std::string m_response_text;
+
+		negative_delete_cache_response_t(
+			restinio::request_handle_t http_req,
+			std::string response_text )
+			: m_http_req{ std::move(http_req) }
+			, m_response_text{ std::move(response_text) }
+		{}
+	};
+
 	//! Type of container for cache of processed images.
 	using cache_t = cache_alike_container_t<
 			transform::resize_request_key_t,
@@ -203,6 +242,14 @@ private :
 	void
 	on_resize_result(
 		mutable_mhood_t<resize_result_t> cmd );
+
+	void
+	on_delete_cache_request(
+		mutable_mhood_t<delete_cache_request_t> cmd );
+
+	void
+	on_negative_delete_cache_response(
+		mutable_mhood_t<negative_delete_cache_response_t> cmd );
 
 	void
 	on_clear_cache(

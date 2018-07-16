@@ -234,7 +234,7 @@ public :
 		};
 		move_to_tmp();
 
-		// Count of unique keys can be safely incremented by 1.
+		// Count of unique keys can be safely decremented by 1.
 		--m_unique_keys;
 
 		// Move the extracted values to user's lambda.

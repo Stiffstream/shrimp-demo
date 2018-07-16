@@ -155,6 +155,13 @@ public :
 		m_items.erase( atoken.value_it() );
 	}
 
+	void
+	clear() noexcept
+	{
+		m_items.clear();
+		m_access_info.clear();
+	}
+
 	[[nodiscard]] bool
 	empty() const noexcept
 	{

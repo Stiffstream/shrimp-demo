@@ -123,6 +123,45 @@ do_400_response( restinio::request_handle_t req )
 }
 
 //
+// do_403_response()
+//
+
+inline auto
+do_403_response(
+	restinio::request_handle_t req,
+	std::string body_content )
+{
+	return
+		response_common_details::make_response_object(
+				req, restinio::status_forbidden(),
+				response_common_details::connection_status_t::close )
+		.append_header(
+				restinio::http_field::content_type,
+				"text/plain; charset=utf-8" )
+		.set_body( std::move(body_content) )
+		.done();
+}
+
+//
+// do_200_plaintext_response()
+//
+
+inline auto
+do_200_plaintext_response(
+	restinio::request_handle_t req,
+	std::string body_content )
+{
+	return
+		response_common_details::make_response_object(
+				req, restinio::status_ok(),
+				response_common_details::connection_status_t::autodetect )
+		.append_header(
+				restinio::http_field::content_type,
+				"text/plain; charset=utf-8" )
+		.set_body( std::move(body_content) )
+		.done();
+}
+//
 // do_503_response()
 //
 
