@@ -346,7 +346,7 @@ a_transform_manager_t::on_successful_resize(
 			result.m_image_blob->size() );
 
 	store_transformed_image_to_cache(
-			std::move(key),
+			transform::resize_request_key_t{ key },
 			datasizable_blob_shared_ptr_t{ result.m_image_blob } );
 
 	// Additional headers for every response.
