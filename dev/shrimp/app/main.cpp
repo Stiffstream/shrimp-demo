@@ -298,6 +298,28 @@ run_app(
 					manager_mbox_promise.get_future().get() ) );
 }
 
+//
+// magick_initializer_t
+//
+/*!
+ * Helper class which uses RAII idiom to initialize and denitialize
+ * ImageMagick++ library.
+ */
+struct magick_initializer_t final {
+   magick_initializer_t(const magick_initializer_t &) = delete;
+   magick_initializer_t(magick_initializer_t &&) = delete;
+
+   magick_initializer_t(const char * arg)
+   {
+      Magick::InitializeMagick( arg );
+   }
+
+   ~magick_initializer_t()
+   {
+      Magick::TerminateMagick();
+   }
+};
+
 } /* anonymous namespace */
 
 int
@@ -305,6 +327,8 @@ main( int argc, const char * argv[] )
 {
 	try
 	{
+      magick_initializer_t magick_init{ *argv };
+
 		const auto args = app_args_t::parse( argc, argv );
 
 		if( !args.m_help )
