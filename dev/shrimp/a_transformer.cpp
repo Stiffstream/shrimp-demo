@@ -56,20 +56,30 @@ a_transformer_t::handle_resize_request(
 
 		auto image = load_image( key.path() );
 
-		const auto duration = measure_duration( [&]{
+		const auto resize_duration = measure_duration( [&]{
 				transform::resize(
 						key.params(),
 						total_pixel_count,
 						image );
 			} );
-		m_logger->debug( "transformation finished; request_key={}, time={}ms",
+		m_logger->debug( "resize finished; request_key={}, time={}ms",
 				key,
 				std::chrono::duration_cast<std::chrono::milliseconds>(
-						duration).count() );
+						resize_duration).count() );
+
+		datasizable_blob_shared_ptr_t blob;
+		const auto serialize_duration = measure_duration( [&] {
+					blob = make_blob( image );
+				} );
+		m_logger->debug( "serialization finished; request_key={}, time={}ms",
+				key,
+				std::chrono::duration_cast<std::chrono::milliseconds>(
+						serialize_duration).count() );
 
 		return a_transform_manager_t::successful_resize_t{
-				make_blob( image ),
-				std::chrono::duration_cast<std::chrono::microseconds>(duration) };
+				std::move(blob),
+				std::chrono::duration_cast<std::chrono::microseconds>(
+						resize_duration + serialize_duration) };
 	}
 	catch( const std::exception & x )
 	{

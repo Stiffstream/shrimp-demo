@@ -306,18 +306,18 @@ run_app(
  * ImageMagick++ library.
  */
 struct magick_initializer_t final {
-   magick_initializer_t(const magick_initializer_t &) = delete;
-   magick_initializer_t(magick_initializer_t &&) = delete;
+	magick_initializer_t(const magick_initializer_t &) = delete;
+	magick_initializer_t(magick_initializer_t &&) = delete;
 
-   magick_initializer_t(const char * arg)
-   {
-      Magick::InitializeMagick( arg );
-   }
+	magick_initializer_t(const char * arg)
+	{
+		Magick::InitializeMagick( arg );
+	}
 
-   ~magick_initializer_t()
-   {
-      Magick::TerminateMagick();
-   }
+	~magick_initializer_t()
+	{
+		Magick::TerminateMagick();
+	}
 };
 
 } /* anonymous namespace */
@@ -327,7 +327,7 @@ main( int argc, const char * argv[] )
 {
 	try
 	{
-      magick_initializer_t magick_init{ *argv };
+		magick_initializer_t magick_init{ *argv };
 
 		const auto args = app_args_t::parse( argc, argv );
 
@@ -348,3 +348,4 @@ main( int argc, const char * argv[] )
 
 	return 0;
 }
+
