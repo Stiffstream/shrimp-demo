@@ -159,7 +159,7 @@ a_transform_manager_t::on_delete_cache_request(
 	}
 	else
 	{
-		m_logger->warn( "delete cache can't performed because there is no "
+		m_logger->warn( "delete cache can't be performed because there is no "
 				"admin token defined" );
 
 		// Operation can't be performed because admin token is not avaliable.
