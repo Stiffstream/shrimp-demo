@@ -60,7 +60,7 @@ class exception_t
 		{}
 
 		template < typename... Args >
-		exception_t( fmt::CStringRef format_str, Args &&... args )
+		exception_t( std::string_view format_str, Args &&... args )
 			:	bast_type_t{ fmt::format( format_str, std::forward< Args >( args )... ) }
 		{}
 };

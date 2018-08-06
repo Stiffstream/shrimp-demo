@@ -18,23 +18,19 @@ MxxRu::arch_externals :restinio do |e|
 end
 
 MxxRu::arch_externals :fmt do |e|
-  e.url 'https://github.com/fmtlib/fmt/archive/4.1.0.zip'
+  e.url 'https://github.com/fmtlib/fmt/archive/5.1.0.zip'
 
-  e.map_dir 'fmt' => 'dev/fmt'
-  e.map_dir 'support' => 'dev/fmt'
-  e.map_file 'CMakeLists.txt' => 'dev/fmt/*'
-  e.map_file 'README.rst' => 'dev/fmt/*'
-  e.map_file 'ChangeLog.rst' => 'dev/fmt/*'
+  e.map_dir 'include' => 'dev/fmt'
 end
 
 MxxRu::arch_externals :fmtlib_mxxru do |e|
-  e.url 'https://bitbucket.org/sobjectizerteam/fmtlib_mxxru/get/fmt-4.1.0.tar.bz2'
+  e.url 'https://bitbucket.org/sobjectizerteam/fmtlib_mxxru/get/fmt-5.0.0.tar.bz2'
 
   e.map_dir 'dev/fmt_mxxru' => 'dev'
 end
 
 MxxRu::arch_externals :spdlog do |e|
-  e.url 'https://github.com/gabime/spdlog/archive/v0.17.0.zip'
+  e.url 'https://github.com/gabime/spdlog/archive/v1.0.0.zip'
 
   e.map_dir 'include' => 'dev/spdlog'
 end
