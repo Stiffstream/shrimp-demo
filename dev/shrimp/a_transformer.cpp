@@ -45,6 +45,27 @@ a_transformer_t::on_resize_request(
 			std::move(result) );
 }
 
+namespace {
+
+[[nodiscard]] const char *
+magick_from_image_format( image_format_t fmt )
+{
+	const char * r = nullptr;
+	switch( fmt )
+	{
+		case image_format_t::jpeg: r = "JPG"; break;
+		case image_format_t::gif: r = "GIF"; break;
+		case image_format_t::png: r = "PNG"; break;
+	}
+
+	if( !r )
+		throw exception_t{ "unsupported image format for Magick::Image::magick()" };
+
+	return r;
+}
+
+} /* namespace anonymous */
+
 [[nodiscard]]
 a_transform_manager_t::resize_result_t::result_t
 a_transformer_t::handle_resize_request(
@@ -57,15 +78,23 @@ a_transformer_t::handle_resize_request(
 		auto image = load_image( key.path() );
 
 		const auto resize_duration = measure_duration( [&]{
-				transform::resize(
-						key.params(),
-						total_pixel_count,
-						image );
+				// Actual resize operation is necessary if
+				// keep_original mode is not used.
+				if( transform::resize_params_t::mode_t::keep_original !=
+						key.params().mode() )
+				{
+					transform::resize(
+							key.params(),
+							total_pixel_count,
+							image );
+				}
 			} );
 		m_logger->debug( "resize finished; request_key={}, time={}ms",
 				key,
 				std::chrono::duration_cast<std::chrono::milliseconds>(
 						resize_duration).count() );
+
+		image.magick( magick_from_image_format( key.format() ) );
 
 		datasizable_blob_shared_ptr_t blob;
 		const auto serialize_duration = measure_duration( [&] {

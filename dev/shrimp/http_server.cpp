@@ -44,6 +44,23 @@ image_format_from_extension( std::string_view ext ) noexcept
 		return {};
 }
 
+//! Try detect target image format from request's parameters.
+/*!
+ * \return empty value if format can't be detected.
+ */
+[[nodiscard]] std::optional< image_format_t >
+try_detect_target_image_format(
+	//! Value of image extension from URL string.
+	std::string_view image_ext,
+	//! Value of optional parameter target_format.
+	std::optional< std::string_view > target_format )
+{
+	if( target_format )
+		return image_format_from_extension( *target_format );
+	else
+		return image_format_from_extension( image_ext );
+}
+
 template < typename Handler >
 void
 try_to_handle_request(
@@ -92,16 +109,12 @@ handle_resize_op_request(
 		req );
 }
 
-namespace {
-
 [[nodiscard]] bool
 has_illegal_path_components( restinio::string_view_t path ) noexcept
 {
 	static constexpr auto npos = restinio::string_view_t::npos;
 	return npos != path.find( ".." ) || npos != path.find( "//" );
 }
-
-} /* namespace anonymous */
 
 void
 add_transform_op_handler(
@@ -120,37 +133,44 @@ add_transform_op_handler(
 					return do_400_response( std::move( req ) );
 				}
 
-				const auto opt_image_format = image_format_from_extension(
-						params[ "ext" ] );
+				// Query params.
+				const auto qp = restinio::parse_query( req->header().query() );
+				const auto target_format = qp.get_param( "target-format"sv );
 
-				if( !opt_image_format )
+				const auto image_format = try_detect_target_image_format(
+						params[ "ext" ],
+						target_format );
+				if( !image_format )
 				{
-					// We do not handle files without extension or with
-					// unknown extension.
+					// Target format of an image is unspecified or unknown.
 					return do_400_response( std::move( req ) );
 				}
 
-				if( req->header().query().empty() )
+				if( !qp.size() )
 				{
 					// No query string => serve original file.
 					return serve_as_regular_file(
 							app_params.m_storage.m_root_dir,
 							std::move( req ),
-							*opt_image_format );
+							*image_format );
 				}
 
-				// Query params.
-				const auto qp = restinio::parse_query( req->header().query() );
-
-				if( "resize" != restinio::value_or( qp, "op"sv, ""sv ) )
+				const auto operation = qp.get_param( "op"sv );
+				if( operation && "resize"sv != *operation )
 				{
 					// Only resize operation is supported.
 					return do_400_response( std::move( req ) );
 				}
 
+				if( !operation && !target_format )
+				{
+					// op=resize or target-format=something must be defined.
+					return do_400_response( std::move( req ) );
+				}
+
 				handle_resize_op_request(
 						req_handler_mbox,
-						*opt_image_format,
+						*image_format,
 						qp,
 						std::move( req ) );
 

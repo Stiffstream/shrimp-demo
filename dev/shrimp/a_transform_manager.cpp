@@ -66,7 +66,11 @@ void
 a_transform_manager_t::on_resize_request(
 	mutable_mhood_t<resize_request_t> cmd )
 {
-	transform::resize_request_key_t request_key{ cmd->m_image, cmd->m_params };
+	transform::resize_request_key_t request_key{
+			cmd->m_image,
+			cmd->m_target_format,
+			cmd->m_params };
+
 	m_logger->trace( "request received; request_key={}, connection_id={}",
 			request_key,
 			cmd->m_http_req->connection_id() );
@@ -242,7 +246,7 @@ a_transform_manager_t::handle_request_for_already_transformed_image(
 	serve_transformed_image(
 			std::move(cmd->m_http_req),
 			atoken.value(),
-			cmd->m_image_format,
+			cmd->m_target_format,
 			http_header::image_src_t::cache,
 			make_header_fields_list(
 					http_header::shrimp_total_processing_time_hf(), "0" ) );
@@ -367,7 +371,7 @@ a_transform_manager_t::on_successful_resize(
 		serve_transformed_image(
 				std::move(rq->m_http_req),
 				result.m_image_blob,
-				rq->m_image_format,
+				rq->m_target_format,
 				http_header::image_src_t::transform,
 				additional_headers );
 	}

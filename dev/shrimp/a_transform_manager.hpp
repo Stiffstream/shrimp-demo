@@ -57,19 +57,19 @@ public:
 		restinio::request_handle_t m_http_req;
 		//! Image name.
 		std::string m_image;
-		//! Type of image to be transformed.
-		image_format_t m_image_format;
+		//! Target format of image to be transformed.
+		image_format_t m_target_format;
 		//! Transformation parameters.
 		transform::resize_params_t m_params;
 
 		resize_request_t(
 			restinio::request_handle_t http_req,
 			std::string image,
-			image_format_t image_format,
+			image_format_t target_format,
 			transform::resize_params_t params )
 			: m_http_req{ std::move(http_req) }
 			, m_image{ std::move(image) }
-			, m_image_format{ image_format }
+			, m_target_format{ target_format }
 			, m_params{ params }
 		{}
 	};
