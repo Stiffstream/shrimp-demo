@@ -56,6 +56,7 @@ magick_from_image_format( image_format_t fmt )
 		case image_format_t::jpeg: r = "JPG"; break;
 		case image_format_t::gif: r = "GIF"; break;
 		case image_format_t::png: r = "PNG"; break;
+		case image_format_t::webp: r = "WEBP"; break;
 	}
 
 	if( !r )

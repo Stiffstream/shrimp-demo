@@ -39,6 +39,7 @@ image_content_type_from_img_format( image_format_t img_format )
 		case image_format_t::gif: return "image/gif";
 		case image_format_t::jpeg: return "image/jpeg";
 		case image_format_t::png: return "image/png";
+		case image_format_t::webp: return "image/webp";
 	}
 
 	// Shrimp must not execute to this point. Possible only if new image

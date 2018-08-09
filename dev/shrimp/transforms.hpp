@@ -188,6 +188,7 @@ operator<<( std::ostream & to, const resize_request_key_t & what )
 			case image_format_t::jpeg: r = "jpg"; break;
 			case image_format_t::gif: r = "gif"; break;
 			case image_format_t::png: r = "png"; break;
+			case image_format_t::webp: r = "webp"; break;
 		}
 		return r;
 	};

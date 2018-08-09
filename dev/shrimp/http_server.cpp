@@ -40,6 +40,8 @@ image_format_from_extension( std::string_view ext ) noexcept
 		return image_format_t::png;
 	else if( compare_with("gif") )
 		return image_format_t::gif;
+	else if( compare_with("webp") )
+		return image_format_t::webp;
 	else
 		return {};
 }
