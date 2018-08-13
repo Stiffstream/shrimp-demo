@@ -353,12 +353,18 @@ a_transform_manager_t::on_successful_resize(
 			transform::resize_request_key_t{ key },
 			datasizable_blob_shared_ptr_t{ result.m_image_blob } );
 
+	// Milliseconds with fractions from microseconds.
+	const auto us_to_ms = [](auto us) { return us.count() / 1000.0; };
+
 	// Additional headers for every response.
 	auto additional_headers = make_header_fields_list(
 			http_header::shrimp_total_processing_time_hf(),
 			fmt::format( "{}",
-					// Milliseconds with fractions.
-					result.m_duration.count() / 1000.0 ) );
+					us_to_ms(result.m_resize_duration + result.m_encoding_duration) ),
+			http_header::shrimp_resize_time_hf(),
+			fmt::format( "{}", us_to_ms(result.m_resize_duration) ),
+			http_header::shrimp_encoding_time_hf(),
+			fmt::format( "{}", us_to_ms(result.m_encoding_duration) ) );
 
 	for( auto & rq : requests )
 	{

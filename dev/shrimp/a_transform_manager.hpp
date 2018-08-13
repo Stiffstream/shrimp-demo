@@ -80,7 +80,9 @@ public:
 		//! Transformed image in form of BLOB.
 		datasizable_blob_shared_ptr_t m_image_blob;
 		//! Time spent on this transformation.
-		std::chrono::microseconds m_duration;
+		std::chrono::microseconds m_resize_duration;
+		//! Time spent on image encoding to the target format.
+		std::chrono::microseconds m_encoding_duration;
 	};
 
 	//! Description of failed transformation result.

@@ -109,7 +109,9 @@ a_transformer_t::handle_resize_request(
 		return a_transform_manager_t::successful_resize_t{
 				std::move(blob),
 				std::chrono::duration_cast<std::chrono::microseconds>(
-						resize_duration + serialize_duration) };
+						resize_duration),
+				std::chrono::duration_cast<std::chrono::microseconds>(
+						serialize_duration) };
 	}
 	catch( const std::exception & x )
 	{

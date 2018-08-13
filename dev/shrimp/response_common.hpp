@@ -48,7 +48,8 @@ set_common_header_fields_for_image_resp(
 				restinio::http_field_t::access_control_allow_origin, "*" )
 		.append_header(
 				"Access-Control-Expose-Headers",
-				"Shrimp-Processing-Time, Shrimp-Image-Src" );
+				"Shrimp-Processing-Time, Shrimp-Resize-Time, "
+				"Shrimp-Encoding-Time, Shrimp-Image-Src" );
 
 	return resp;
 }
@@ -227,8 +228,15 @@ namespace http_header
 
 [[nodiscard]]
 inline std::string_view
-shrimp_total_processing_time_hf() { return { "Shrimp-Processing-Time" };
-}
+shrimp_total_processing_time_hf() { return { "Shrimp-Processing-Time" }; }
+
+[[nodiscard]]
+inline std::string_view
+shrimp_resize_time_hf() { return { "Shrimp-Resize-Time" }; }
+
+[[nodiscard]]
+inline std::string_view
+shrimp_encoding_time_hf() { return { "Shrimp-Encoding-Time" }; }
 
 [[nodiscard]]
 inline std::string_view
