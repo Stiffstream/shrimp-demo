@@ -26,6 +26,58 @@ namespace /* anonymous */
 enum class sobj_tracing_t { off, on };
 enum class restinio_tracing_t { off, on };
 
+// Helper class to be used as strong typedef for thread count type.
+// Thread count can't have zero value.
+class thread_count_t final
+{
+public:
+	using underlying_type_t = unsigned int;
+
+private:
+	static constexpr const char * const invalid_value = "Thread count can't be zero";
+
+	struct trusty_t { underlying_type_t m_value; };
+
+	underlying_type_t m_value;
+
+	thread_count_t(trusty_t trusty) noexcept
+		:	m_value{ trusty.m_value }
+	{}
+
+	[[nodiscard]]
+	static underlying_type_t
+	valid_value_or_throw( const std::variant<thread_count_t, const char *> v )
+	{
+		if( auto * msg = std::get_if<const char *>(&v); msg )
+			throw std::runtime_error( *msg );
+
+		return std::get<thread_count_t>(v).value();
+	}
+
+public:
+	// Returns a normal object or pointer to error message in the case
+	// of invalid value.
+	[[nodiscard]]
+	static std::variant<thread_count_t, const char *>
+	try_construct( underlying_type_t value ) noexcept
+	{
+		if( 0u == value )
+			return { invalid_value };
+		else
+			return { thread_count_t{ trusty_t{ value } } };
+	}
+
+	// Construct an object with checking for errors.
+	// Throws an exception in case of invalid value.
+	thread_count_t(underlying_type_t value)
+		: m_value{ valid_value_or_throw( try_construct(value) ) }
+	{}
+
+	[[nodiscard]]
+	underlying_type_t
+	value() const noexcept { return m_value; }
+};
+
 //! Application arg parser.
 struct app_args_t
 {
@@ -36,31 +88,39 @@ struct app_args_t
 
 	shrimp::app_params_t m_app_params;
 
-	std::optional<unsigned int> m_io_threads;
-	std::optional<unsigned int> m_worker_threads;
+	std::optional<thread_count_t> m_io_threads;
+	std::optional<thread_count_t> m_worker_threads;
 
 	[[nodiscard]]
-	static std::optional<unsigned int>
-	uint_from_env_var( const char * env_var_name )
+	static std::optional<thread_count_t>
+	thread_count_from_env_var( const char * env_var_name )
 	{
-		std::optional<unsigned int> result;
+		std::optional<thread_count_t> result;
 
 		const char * var = std::getenv( env_var_name ); 
 		if( var )
 		{
-			unsigned int v = 0;
-			const auto conv_result = std::from_chars(
-					var, var + std::strlen(var), v, 10 );
-			if( conv_result.ec != std::errc::invalid_argument &&
-				conv_result.ec != std::errc::result_out_of_range )
+			try
 			{
-				result = v;
+				unsigned int v = 0;
+				const auto conv_result = std::from_chars(
+						var, var + std::strlen(var), v, 10 );
+				if( conv_result.ec != std::errc::invalid_argument &&
+					conv_result.ec != std::errc::result_out_of_range )
+				{
+					result = v;
+				}
+				else
+					throw std::runtime_error{
+							fmt::format( "Unable to parse numeric value: '{}'", var ) };
 			}
-			else
-				throw shrimp::exception_t(
-						"Invalid numeric value for ENV-variable {}: '{}'",
+			catch( const std::exception & x )
+			{
+				throw shrimp::exception_t{
+						"Unable to process ENV-variable {}: {}",
 						env_var_name,
-						var );
+						x.what() };
+			}
 		}
 
 		return result;
@@ -95,8 +155,8 @@ struct app_args_t
 		bool restinio_tracing = false;
 		std::string log_level{ "trace" };
 
-		std::optional<unsigned int> io_threads;
-		std::optional<unsigned int> worker_threads;
+		std::optional<thread_count_t> io_threads;
+		std::optional<thread_count_t> worker_threads;
 
 		const auto make_opt = [](auto & val,
 				const char * name, const char * short_name, const char * long_name,
@@ -128,12 +188,28 @@ struct app_args_t
 					[ "--restinio-tracing" ]
 					( "Turn RESTinio tracing facility on" )
 			| Opt( [&io_threads](unsigned int const v) {
-						io_threads = v;
+						return std::visit( shrimp::variant_visitor{
+								[&io_threads]( const thread_count_t & count ) {
+									io_threads = count;
+									return ParserResult::ok( ParseResultType::Matched );
+								},
+								[]( const char * error_msg ) {
+									return ParserResult::runtimeError( error_msg );
+								} },
+								thread_count_t::try_construct(v) );
 					}, "non-zero number" )
 					[ "--io-threads" ]
 					( "Count of threads for IO operations" )
 			| Opt( [&worker_threads](unsigned int const v) {
-						worker_threads = v;
+						return std::visit( shrimp::variant_visitor{
+								[&worker_threads]( const thread_count_t & count ) {
+									worker_threads = count;
+									return ParserResult::ok( ParseResultType::Matched );
+								},
+								[]( const char * error_msg ) {
+									return ParserResult::runtimeError( error_msg );
+								} },
+								thread_count_t::try_construct(v) );
 					}, "non-zero number" )
 					[ "--worker-threads" ]
 					( "Count of threads for resize operations" )
@@ -175,19 +251,11 @@ struct app_args_t
 		else
 			result.m_log_level = *actual_log_level;
 
-		if( !io_threads )
-			io_threads = uint_from_env_var( "SHRIMP_IO_THREADS" );
-		if( io_threads && 0u == *io_threads )
-			throw shrimp::exception_t{
-					"Count of IO-threads must be greater than 0" };
-		result.m_io_threads = io_threads;
+		result.m_io_threads = io_threads ? io_threads :
+				thread_count_from_env_var( "SHRIMP_IO_THREADS" );
 
-		if( !worker_threads )
-			worker_threads = uint_from_env_var( "SHRIMP_WORKER_THREADS" );
-		if( worker_threads && 0u == *worker_threads )
-			throw shrimp::exception_t{
-					"Count of worker threads must be greater than 0" };
-		result.m_worker_threads = worker_threads;
+		result.m_worker_threads = worker_threads ? worker_threads :
+				thread_count_from_env_var( "SHRIMP_WORKER_THREADS" );
 
 		return result;
 	}
@@ -217,29 +285,30 @@ make_logger(
 [[nodiscard]]
 auto
 calculate_thread_count(
-	const std::optional<unsigned int> default_io_threads,
-	const std::optional<unsigned int> default_worker_threads )
+	const std::optional<thread_count_t> default_io_threads,
+	const std::optional<thread_count_t> default_worker_threads )
 {
 	struct result_t {
-		unsigned int m_io_threads;
-		unsigned int m_worker_threads;
+		thread_count_t m_io_threads;
+		thread_count_t m_worker_threads;
 	};
 
-	const auto actual_io_threads_calculator = []() -> unsigned int {
+	const auto actual_io_threads_calculator = []() -> thread_count_t {
 		constexpr unsigned int max_io_threads = 2u;
 		const unsigned int cores = std::thread::hardware_concurrency();
-		return cores < max_io_threads * 3u ? 1u : max_io_threads;
+		return { cores < max_io_threads * 3u ? 1u : max_io_threads };
 	};
 
 	const auto actual_worker_threads_calculator =
-			[](unsigned int io_threads) -> unsigned int {
+			[](thread_count_t io_threads) -> thread_count_t {
 				const unsigned int cores = std::thread::hardware_concurrency();
-				return cores <= io_threads ? 2u : cores - io_threads;
+				return { cores <= io_threads.value() ?
+						2u : cores - io_threads.value() };
 			};
 
-	const unsigned int io_threads = default_io_threads ?
+	const auto io_threads = default_io_threads ?
 			*default_io_threads : actual_io_threads_calculator();
-	const unsigned int worker_threads = default_worker_threads ?
+	const auto worker_threads = default_worker_threads ?
 			*default_worker_threads : actual_worker_threads_calculator(io_threads);
 
 	return result_t{ io_threads, worker_threads };
@@ -327,19 +396,19 @@ run_app(
 	spdlog::level::level_enum log_level,
 	sobj_tracing_t sobj_tracing,
 	restinio_tracing_t restinio_tracing,
-	const std::optional<unsigned int> default_io_threads,
-	const std::optional<unsigned int> default_worker_threads )
+	const std::optional<thread_count_t> default_io_threads,
+	const std::optional<thread_count_t> default_worker_threads )
 {
 	auto logger_sink = make_logger_sink();
 	logger_sink->set_level( log_level );
 	
-	const auto thread_count = calculate_thread_count(
+	const auto threads = calculate_thread_count(
 			default_io_threads,
 			default_worker_threads );
 	make_logger( "run_app", logger_sink )->info(
 			"shrimp threads count: io_threads={}, worker_threads={}",
-			thread_count.m_io_threads,
-			thread_count.m_worker_threads );
+			threads.m_io_threads.value(),
+			threads.m_worker_threads.value() );
 
 	// ASIO io_context must outlive sobjectizer.
 	asio::io_context asio_io_ctx;
@@ -353,7 +422,7 @@ run_app(
 							logger_sink,
 							params,
 							env,
-							thread_count.m_worker_threads ) );
+							threads.m_worker_threads.value() ) );
 		},
 		[&]( so_5::environment_params_t & params ) {
 			if( sobj_tracing_t::on == sobj_tracing )
@@ -373,7 +442,7 @@ run_app(
 	restinio::run(
 			asio_io_ctx,
 			shrimp::make_http_server_settings(
-					thread_count.m_io_threads,
+					threads.m_io_threads.value(),
 					params,
 					std::move(restinio_logger),
 					manager_mbox_promise.get_future().get() ) );
