@@ -18,7 +18,6 @@
 
 #include <stdexcept>
 #include <iostream>
-#include <charconv>
 
 namespace /* anonymous */
 {
@@ -102,23 +101,15 @@ struct app_args_t
 		{
 			try
 			{
-				unsigned int v = 0;
-				const auto conv_result = std::from_chars(
-						var, var + std::strlen(var), v, 10 );
-				if( conv_result.ec != std::errc::invalid_argument &&
-					conv_result.ec != std::errc::result_out_of_range )
-				{
-					result = v;
-				}
-				else
-					throw std::runtime_error{
-							fmt::format( "Unable to parse numeric value: '{}'", var ) };
+				result = restinio::cast_to<thread_count_t::underlying_type_t>(
+						std::string_view{ var } );
 			}
 			catch( const std::exception & x )
 			{
 				throw shrimp::exception_t{
-						"Unable to process ENV-variable {}: {}",
+						"Unable to process ENV-variable {}={}: {}",
 						env_var_name,
+						var,
 						x.what() };
 			}
 		}
