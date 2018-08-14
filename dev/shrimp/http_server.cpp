@@ -42,6 +42,8 @@ image_format_from_extension( std::string_view ext ) noexcept
 		return image_format_t::gif;
 	else if( compare_with("webp") )
 		return image_format_t::webp;
+	else if( compare_with("heic") )
+		return image_format_t::heic;
 	else
 		return {};
 }
