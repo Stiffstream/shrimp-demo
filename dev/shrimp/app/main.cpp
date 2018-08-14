@@ -143,6 +143,24 @@ struct app_args_t
 	}
 
 	[[nodiscard]]
+	static auto
+	make_thread_count_handler( std::optional<thread_count_t> & receiver )
+	{
+		return [&receiver]( thread_count_t::underlying_type_t const v ) {
+			using namespace clara;
+			return std::visit( shrimp::variant_visitor{
+					[&receiver]( const thread_count_t & count ) {
+						receiver = count;
+						return ParserResult::ok( ParseResultType::Matched );
+					},
+					[]( const char * error_msg ) {
+						return ParserResult::runtimeError( error_msg );
+					} },
+					thread_count_t::try_construct(v) );
+		};
+	}
+
+	[[nodiscard]]
 	static app_args_t
 	parse( int argc, const char * argv[] )
 	{
@@ -187,30 +205,10 @@ struct app_args_t
 			| Opt( restinio_tracing )
 					[ "--restinio-tracing" ]
 					( "Turn RESTinio tracing facility on" )
-			| Opt( [&io_threads](unsigned int const v) {
-						return std::visit( shrimp::variant_visitor{
-								[&io_threads]( const thread_count_t & count ) {
-									io_threads = count;
-									return ParserResult::ok( ParseResultType::Matched );
-								},
-								[]( const char * error_msg ) {
-									return ParserResult::runtimeError( error_msg );
-								} },
-								thread_count_t::try_construct(v) );
-					}, "non-zero number" )
+			| Opt( make_thread_count_handler(io_threads), "non-zero number" )
 					[ "--io-threads" ]
 					( "Count of threads for IO operations" )
-			| Opt( [&worker_threads](unsigned int const v) {
-						return std::visit( shrimp::variant_visitor{
-								[&worker_threads]( const thread_count_t & count ) {
-									worker_threads = count;
-									return ParserResult::ok( ParseResultType::Matched );
-								},
-								[]( const char * error_msg ) {
-									return ParserResult::runtimeError( error_msg );
-								} },
-								thread_count_t::try_construct(v) );
-					}, "non-zero number" )
+			| Opt( make_thread_count_handler(worker_threads), "non-zero number" )
 					[ "--worker-threads" ]
 					( "Count of threads for resize operations" )
 			| make_opt(
