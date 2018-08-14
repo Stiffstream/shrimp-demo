@@ -40,6 +40,7 @@ image_content_type_from_img_format( image_format_t img_format )
 		case image_format_t::jpeg: return "image/jpeg";
 		case image_format_t::png: return "image/png";
 		case image_format_t::webp: return "image/webp";
+		case image_format_t::heic: return "image/heic";
 	}
 
 	// Shrimp must not execute to this point. Possible only if new image

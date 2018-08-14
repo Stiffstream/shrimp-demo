@@ -35,7 +35,8 @@ enum class image_format_t
 	gif,
 	jpeg,
 	png,
-	webp
+	webp,
+	heic
 };
 
 //

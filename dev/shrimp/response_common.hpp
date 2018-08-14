@@ -227,19 +227,19 @@ namespace http_header
 {
 
 [[nodiscard]]
-inline std::string_view
+inline constexpr std::string_view
 shrimp_total_processing_time_hf() { return { "Shrimp-Processing-Time" }; }
 
 [[nodiscard]]
-inline std::string_view
+inline constexpr std::string_view
 shrimp_resize_time_hf() { return { "Shrimp-Resize-Time" }; }
 
 [[nodiscard]]
-inline std::string_view
+inline constexpr std::string_view
 shrimp_encoding_time_hf() { return { "Shrimp-Encoding-Time" }; }
 
 [[nodiscard]]
-inline std::string_view
+inline constexpr std::string_view
 shrimp_image_src_hf() { return "Shrimp-Image-Src"; }
 
 //! Server image source.
