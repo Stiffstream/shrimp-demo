@@ -21,8 +21,7 @@ MxxRu::Cpp::composite_target( MxxRu::BUILD_ROOT ) {
 			default_runtime_mode( MxxRu::Cpp::RUNTIME_RELEASE )
 			MxxRu::enable_show_brief
 
-			global_obj_placement MxxRu::Cpp::PrjAwareRuntimeSubdirObjPlacement.new(
-				'target', MxxRu::Cpp::PrjAwareRuntimeSubdirObjPlacement::USE_COMPILER_ID )
+			global_obj_placement MxxRu::Cpp::RuntimeSubdirObjPlacement.new( 'target' )
 		end
 	end
 
