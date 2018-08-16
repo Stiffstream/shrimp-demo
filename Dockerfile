@@ -1,4 +1,4 @@
-FROM ubuntu:18.04 as shrimpdemo
+FROM ubuntu:18.04 as shrimpdemo-build
 
 # Prepare build environment
 RUN apt-get update && \
@@ -71,21 +71,22 @@ RUN echo "*** Installing libwebp-"${libwebp_VERSION} \
     && make install \
     && rm -rf /tmp/libwebp-${libwebp_VERSION}
 
-ARG IMAGEMAGICK_VERSION=7.0.7-39
-RUN echo "*** Installing ImageMagic-"${IMAGEMAGICK_VERSION} \
+ARG ImageMagick_VERSION=7.0.7
+ARG ImageMagick_PATCH=39
+ARG ImageMagick_FullVersion=${ImageMagick_VERSION}-${ImageMagick_PATCH}
+RUN echo "*** Installing ImageMagick-"${ImageMagick_FullVersion} \
     && cd /tmp \
-    && curl -s -O -L https://github.com/ImageMagick/ImageMagick/archive/${IMAGEMAGICK_VERSION}.tar.gz \
-    && tar xzf ${IMAGEMAGICK_VERSION}.tar.gz \
-    && rm /tmp/${IMAGEMAGICK_VERSION}.tar.gz \
-    && cd /tmp/ImageMagick-${IMAGEMAGICK_VERSION} \
+    && curl -s -O -L https://github.com/ImageMagick/ImageMagick/archive/${ImageMagick_FullVersion}.tar.gz \
+    && tar xzf ${ImageMagick_FullVersion}.tar.gz \
+    && rm /tmp/${ImageMagick_FullVersion}.tar.gz \
+    && cd /tmp/ImageMagick-${ImageMagick_FullVersion} \
     && ./configure \
     && make -j4 \
     && make install \
     && ldconfig \
-    && rm -rf /tmp/ImageMagick-${IMAGEMAGICK_VERSION} \
+    && rm -rf /tmp/ImageMagick-${ImageMagick_FullVersion} \
     && convert -version
 
-RUN echo "*** Copying Shrimp sources ***"
 RUN mkdir /tmp/shrimp-dev
 COPY externals.rb /tmp/shrimp-dev
 COPY dev /tmp/shrimp-dev/dev
@@ -99,11 +100,23 @@ RUN echo "*** Building Shrimp ***" \
 	 && cd /root \
 	 && rm -rf /tmp/shrimp-dev
 
-# Remove build stuff
-RUN apt-get -y purge gcc g++ ruby \
-    cmake autoconf curl wget libpcre3-dev pkg-config \
-    libjpeg-dev libpng-dev libgif-dev \
-    libtool
+FROM ubuntu:18.04 as shrimpdemo
+
+ARG ImageMagick_VERSION=7.0.7
+
+RUN apt-get update \
+    && apt-get -qq -y install libjpeg8 libpng16-16 libgif7 libwebp6 libgomp1 libwebpmux3
+
+COPY --from=shrimpdemo-build /root/shrimp.app /root
+
+COPY --from=shrimpdemo-build /usr/local/etc/ImageMagick-7 /usr/local/etc/ImageMagick-7
+
+COPY --from=shrimpdemo-build /usr/local/lib/ImageMagick-${ImageMagick_VERSION} /usr/local/lib/ImageMagick-${ImageMagick_VERSION}
+
+COPY --from=shrimpdemo-build /usr/local/lib/lib*.so /usr/local/lib/
+
+RUN ldconfig
+
 
 # Shrimp runs on port 80.
 EXPOSE 80
