@@ -1,7 +1,9 @@
 # What Is Shrimp?
 
 *Shrimp* is a small HTTP-server that provides shrunk images
-generated from a specified set.
+generated from a specified set. It also supports conversion
+of an image into a different format (jpg, png, gif, webp and
+heic are supported).
 
 ## Basic idea
 
@@ -14,6 +16,11 @@ So you end up with the following form requests to your server:
 * `http://myserver/path/to/image/img.jpg?op=resize&width=2500`
 * `http://myserver/path/to/image/img.jpg?op=resize&max=1024`
 
+You can also request a conversion to different format:
+
+* `http://myserver/path/to/image/img.jpg?op=resize&height=128&target-format=png`
+* `http://myserver/path/to/image/img.jpg?target-format=webp`
+
 And that is what *Shrimp* is about.
 
 # Obtain and build
@@ -23,28 +30,63 @@ And that is what *Shrimp* is about.
 *Shrimp* is developed under Ubuntu (16.04/18.04) using gcc-8.1 or gcc-7.3.
 
 *Shrimp* uses [ImageMagick](https://www.imagemagick.org) for working with images.
-It is the only dependency that must be installed manually.
+ImageMagick and all its dependencies (like libjpeg-dev, libpng-dev, libwebp,
+x265, libde265, libheif and so on) must be installed manually.
 
-An sample of how to obtain and build ImageMagick-7.0.7.7:
-
-```bash
-# Install necessary packages:
-apt-get install autoconf pkg-config libjpeg-dev libpng-dev libgif-dev
-wget https://github.com/ImageMagick/ImageMagick/archive/7.0.7.7.zip
-unzip 7.0.7.7.zip
-cd ImageMagick-7.0.7.7
-./configure && make
-make install
-
-#Test:
-Magick++-config --cppflags --libs
-```
-
-All other dependencies come with *Shrimp*.
+All other *Shrimp*'s dependencies come with *Shrimp*.
 
 ## Obtain *Shrimp* sources
 
 ### Obtain from repository
+
+Just use `hg clone` command to download *Shrimp* sources.
+
+```bash
+hg clone https://bitbucket.org/sobjectizerteam/shrimp-demo
+```
+
+You can also download a specific *Shrimp*'s version from a
+[Downloads](https://bitbucket.org/sobjectizerteam/shrimp-demo/downloads/?tab=tags) section.
+
+## Building
+
+There are two approaches for building *Shrimp*:
+
+* by using Docker;
+* by using Mxx_ru.
+
+The simplest one is Docker-build because all necessary dependencies are
+downloaded and built automatically during `docker build` command.
+
+### Docker build
+
+You need [Docker](https://www.docker.com/) installed.
+
+Enter into *Shrimp*'s folder and run `docker build` command:
+
+```bash
+cd shrimp-demo
+docker build -t shrimpdemo .
+```
+
+All necessary dependencies will be downloaded, configured and built inside
+Docker's image.
+
+Then you can start Docker's image:
+
+```bash
+docker run -p 8080:80 \
+  --mount type=bind,source=YOUR-PATH,destination=/root/images,readonly \
+  shrimpdemo
+```
+where `YOUR-PATH` is a path to your images.
+
+## Build with Mxx_ru
+
+First of all you need to download, configure and install ImageMagick and
+all its dependencies. ImageMagick and all necessary image encoders/decoders
+should be installed in your system before you start building *Shrimp*.
+You can take a look onto `Dockerfile` to see how it can be done.
 
 To build *Shrimp* from repository you need to install
 [Mxx_ru](https://sourceforge.net/projects/mxxru/) 1.6.14.5 or above:
@@ -60,27 +102,15 @@ Clone repo and download dependencies:
 
 ```bash
 hg clone https://bitbucket.org/sobjectizerteam/shrimp-demo
-cd shrimp
+cd shrimp-demo
 mxxruexternals
 ```
-
-### Obtain from archive
-
-```bash
-wget https://bitbucket.org/sobjectizerteam/shrimp-demo/downloads/<ARCHIVE>
-tar xjvf <ARCHIVE>
-cd <UNPACKED_DIR>
-```
-
-
-## Build with Mxx_ru
 
 Once you get *Shrimp* sources and its dependencies you can build it.
 
 ```bash
 # Start with repository root directory
 cd dev
-cp local-build.rb.example local-build.rb
 # Build and run unit-tests.
 ruby build.rb --mxx-cpp-release
 # See shrimp.app in 'target/release' directory.
