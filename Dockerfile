@@ -105,7 +105,7 @@ FROM ubuntu:18.04 as shrimpdemo
 ARG ImageMagick_VERSION=7.0.7
 
 RUN apt-get update \
-    && apt-get -qq -y install libjpeg8 libpng16-16 libgif7 libwebp6 libgomp1 libwebpmux3
+    && apt-get -qq -y install libjpeg8 libpng16-16 libgif7 libgomp1 
 
 COPY --from=shrimpdemo-build /root/shrimp.app /root
 
